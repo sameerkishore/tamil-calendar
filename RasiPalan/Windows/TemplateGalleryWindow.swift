@@ -10,7 +10,7 @@ final class TemplateGalleryWindowController {
 
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
          choosePicture: @escaping () -> Void, customize: @escaping () -> Void, adjustPicture: @escaping () -> Void,
-         customLayout: @escaping () -> CardLayout?) {
+         setPhotoPrinted: @escaping (Bool) -> Void, customLayout: @escaping () -> CardLayout?) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 900, height: 680),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
@@ -18,7 +18,8 @@ final class TemplateGalleryWindowController {
         window.contentMinSize = CGSize(width: 560, height: 420)
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
             model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
-            customize: customize, adjustPicture: adjustPicture, customLayout: customLayout))
+            customize: customize, adjustPicture: adjustPicture, setPhotoPrinted: setPhotoPrinted,
+            customLayout: customLayout))
     }
 
     func show() {
@@ -35,6 +36,7 @@ struct TemplateGalleryView: View {
     let choosePicture: () -> Void
     let customize: () -> Void
     let adjustPicture: () -> Void
+    let setPhotoPrinted: (Bool) -> Void
     let customLayout: () -> CardLayout?
     /// Off only for debug snapshots, which can't render a scroll view.
     var scrolls = true
@@ -89,6 +91,7 @@ struct TemplateGalleryView: View {
                     Button { chooseBoard(style) } label: {
                         VStack(spacing: 6) {
                             BoardThumbnail(style: style, image: model.boardImage, crop: model.boardCrop,
+                                           printed: model.boardPhotoPrinted,
                                            year: model.context.day.year)
                                 .overlay(selection(model.board == style))
                             Text(style.title).font(.caption.bold())
@@ -98,6 +101,11 @@ struct TemplateGalleryView: View {
                 }
             }
             HStack {
+                if model.boardImage != nil {
+                    Toggle("Vintage print effect", isOn: Binding(get: { model.boardPhotoPrinted },
+                                                                 set: setPhotoPrinted))
+                        .help("A faint halftone, grain and warm fade on your picture")
+                }
                 Spacer()
                 if model.boardImage != nil {
                     Button("Adjust Picture…", action: adjustPicture)
@@ -121,6 +129,7 @@ private struct BoardThumbnail: View {
     let style: BoardStyle
     let image: NSImage?
     var crop = PhotoCrop()
+    var printed = true
     let year: Int
 
     static let scale: CGFloat = 0.25
@@ -133,7 +142,7 @@ private struct BoardThumbnail: View {
         let origin = PadView.padOrigin(board: style)
         ZStack(alignment: .topLeading) {
             if style != .none {
-                BoardView(style: style, year: year, image: image, crop: crop)
+                BoardView(style: style, year: year, image: image, crop: crop, printed: printed)
             }
             VStack(spacing: 0) {
                 Rectangle().fill(Ink.red).frame(height: theme.u(PadView.gripHeight))

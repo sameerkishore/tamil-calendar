@@ -40,6 +40,8 @@ struct AppState: Codable {
     /// The user's own board picture, copied into Application Support.
     var boardImagePath: String?
     var boardCrop = PhotoCrop()
+    /// Faint halftone, grain and warm fade on the board picture.
+    var boardPhotoPrinted = true
     /// System-wide shortcut that brings the calendar in front / sends it back.
     var frontShortcut: FrontShortcut = .controlH
     /// The user's own layout from the editor (layoutID "custom").
@@ -93,6 +95,7 @@ struct AppState: Codable {
         board = (try? c.decodeIfPresent(BoardStyle.self, forKey: .board)) ?? BoardStyle.none
         boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
         boardCrop = (try? c.decodeIfPresent(PhotoCrop.self, forKey: .boardCrop)) ?? PhotoCrop()
+        boardPhotoPrinted = (try? c.decodeIfPresent(Bool.self, forKey: .boardPhotoPrinted)) ?? true
         frontShortcut = (try? c.decodeIfPresent(FrontShortcut.self, forKey: .frontShortcut)) ?? .controlH
         customLayout = try? c.decodeIfPresent(CardLayout.self, forKey: .customLayout)
         myRasi = try c.decodeIfPresent(Int.self, forKey: .myRasi)

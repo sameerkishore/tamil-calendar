@@ -20,6 +20,7 @@ final class PadModel {
     var board: BoardStyle = .none
     var boardImage: NSImage?
     var boardCrop = PhotoCrop()
+    var boardPhotoPrinted = true
     /// The pad (and torn sheets, balls, bin) float above all windows instead of the desktop.
     var keepOnTop = false
     /// Reminders, events and weather for the days on the pad.
@@ -91,6 +92,7 @@ final class AppController {
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
+        model.boardPhotoPrinted = store.state.boardPhotoPrinted
         model.keepOnTop = store.state.keepOnTop
     }
 
@@ -262,6 +264,7 @@ final class AppController {
                 choosePicture: { [weak self] in self?.chooseBoardImage() },
                 customize: { [weak self] in self?.showLayoutEditor() },
                 adjustPicture: { [weak self] in self?.adjustBoardImage() },
+                setPhotoPrinted: { [weak self] in self?.setBoardPhotoPrinted($0) },
                 customLayout: { [weak self] in self?.state.customLayout })
         }
         gallery?.show()
@@ -342,6 +345,13 @@ final class AppController {
         model.boardCrop = PhotoCrop()
         setBoard(.custom)
         adjustBoardImage()
+    }
+
+    /// Turns the vintage print effect on the board picture on or off.
+    func setBoardPhotoPrinted(_ on: Bool) {
+        store.state.boardPhotoPrinted = on
+        store.save()
+        model.boardPhotoPrinted = on
     }
 
     /// Opens the crop window for the board picture; changes apply live.

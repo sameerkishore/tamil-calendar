@@ -37,6 +37,8 @@ struct BoardView: View {
     let year: Int
     var image: NSImage?
     var crop = PhotoCrop()
+    /// Vintage print effect on the picture (custom board only).
+    var printed = true
     @Environment(\.cardTheme) private var theme
 
     private static let band = Color(red: 0.05, green: 0.42, blue: 0.43)
@@ -105,7 +107,7 @@ struct BoardView: View {
                     .overlay(RosettePattern(spacing: theme.u(30))
                         .stroke(Color(red: 0.42, green: 0.05, blue: 0.11).opacity(0.7), lineWidth: max(1, theme.u(1.1))))
                     .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
-                PhotoPortrait(image: image, crop: crop)
+                PhotoPortrait(image: image, crop: crop, printed: printed)
                     .frame(width: theme.u(BoardStyle.photoFrame.width), height: theme.u(BoardStyle.photoFrame.height))
                     .offset(x: theme.u(BoardStyle.photoFrame.minX), y: theme.u(BoardStyle.photoFrame.minY))
             }
@@ -151,6 +153,7 @@ struct PhotoCrop: Codable, Equatable {
 struct PhotoPortrait: View {
     let image: NSImage?
     let crop: PhotoCrop
+    var printed = true
     @Environment(\.cardTheme) private var theme
 
     var body: some View {
@@ -163,7 +166,8 @@ struct PhotoPortrait: View {
                         .saturation(1.12)
                         .contrast(1.05)
                         .layerEffect(ShaderLibrary.halftone(.float(theme.scale)),
-                                     maxSampleOffset: CGSize(width: theme.u(3), height: theme.u(3)))
+                                     maxSampleOffset: CGSize(width: theme.u(3), height: theme.u(3)),
+                                     isEnabled: printed)
                 } else {
                     Text("Choose a picture in\nTemplates & Board")
                         .font(theme.latin(12))
