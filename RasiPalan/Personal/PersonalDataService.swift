@@ -100,20 +100,25 @@ final class PersonalDataService {
         let predicate = events.predicateForIncompleteReminders(
             withDueDateStarting: start.addingTimeInterval(-1), ending: end.addingTimeInterval(-1), calendars: nil)
         return await withCheckedContinuation { continuation in
-            // EventKit calls back on its own queue, so this closure must not inherit main-actor isolation.
+            // EventKit calls back on its own queue, so nothing in this closure may be main-actor
+            // isolated — including the filter and sort closures, hence the nonisolated helper.
             events.fetchReminders(matching: predicate) { @Sendable found in
-                // Belt and braces: keep only reminders whose due day is this day.
-                let onDay = (found ?? []).filter { r in
-                    guard let c = r.dueDateComponents else { return false }
-                    return c.year == day.year && c.month == day.month && c.day == day.day
-                }
-                let sorted = onDay.sorted {
-                    ($0.dueDateComponents?.date ?? .distantFuture) < ($1.dueDateComponents?.date ?? .distantFuture)
-                }
-                continuation.resume(returning: sorted.compactMap { $0.title?.trimmingCharacters(in: .whitespaces) }
-                    .filter { !$0.isEmpty })
+                continuation.resume(returning: Self.titles(of: found, on: day))
             }
         }
+    }
+
+    /// Titles of the reminders due on `day`, earliest first. Runs on EventKit's queue.
+    nonisolated private static func titles(of found: [EKReminder]?, on day: CalendarDay) -> [String] {
+        // Belt and braces: keep only reminders whose due day is this day.
+        let onDay = (found ?? []).filter { r in
+            guard let c = r.dueDateComponents else { return false }
+            return c.year == day.year && c.month == day.month && c.day == day.day
+        }
+        let sorted = onDay.sorted {
+            ($0.dueDateComponents?.date ?? .distantFuture) < ($1.dueDateComponents?.date ?? .distantFuture)
+        }
+        return sorted.compactMap { $0.title?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     private func eventsOn(_ day: CalendarDay) -> [PrintedEvent] {
