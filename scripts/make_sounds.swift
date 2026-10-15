@@ -153,6 +153,17 @@ func rip(seed: UInt64) -> [Double] {
     return normalize(fade(filter(c, paperBand), outMs: 25), peak: 0.9)
 }
 
+/// One perforation giving way: a tiny, crisp paper "tick".
+func perforation(seed: UInt64) -> [Double] {
+    var rng = RNG(seed)
+    let seconds = 0.05 + rng.next() * 0.03
+    var click = hiss(seconds: 0.004, seed: seed + 50) { exp(-$0 / 0.0008) * 1.6 }
+    click = filter(click, [.highpass(2_500)])
+    var c = crackles(seconds: seconds, seed: seed, rate: { _ in 2_500 }, gain: { exp(-$0 / 0.012) }, burstMs: 0.2...1.2)
+    c = mix(c, click)
+    return normalize(fade(filter(c, [.highpass(1_400), .lowpass(9_000)]), inMs: 0.3, outMs: 8), peak: 0.8)
+}
+
 /// Gentle paper settling, for a sheet snapping back onto the pad.
 func rustle(seed: UInt64) -> [Double] {
     let seconds = 0.35
@@ -233,6 +244,7 @@ for v in 1...3 {
     sounds.append(("crumple-\(v)", crumple(seed: UInt64(v * 41))))
 }
 for v in 1...2 { sounds.append(("thunk-\(v)", thunk(seed: UInt64(v)))) }
+for v in 1...5 { sounds.append(("perf-\(v)", perforation(seed: UInt64(v * 97)))) }
 
 for (name, buf) in sounds {
     try writeWAV(buf, to: dir.appendingPathComponent("\(name).wav"))

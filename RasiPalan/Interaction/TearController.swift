@@ -57,8 +57,18 @@ struct TornSheet {
     var tornFromLeft: Bool
 }
 
+/// How many holes the perforation along the top of each sheet has.
+enum Perforation {
+    static let count = 28
+}
+
 /// Runs one tear gesture: shows the sheet in a full-screen transparent overlay while it's being
-/// pulled, decides when it rips free, and hands the free sheet over to become a floating window.
+/// pulled, breaks the perforation one hole at a time, and hands the free sheet over to become
+/// a floating window.
+///
+/// Feel: paper barely stretches, so most of the pull becomes tension. Each hole needs a bit more
+/// pull to give way, and holes always break one after another (a fast yank zips through them in
+/// quick succession rather than skipping), each with a tick, a small snap and a haptic click.
 @MainActor
 final class TearController {
     /// The top sheet has been lifted: the pad should now show the next day underneath.
@@ -75,15 +85,23 @@ final class TearController {
     private var overlayFrame: CGRect = .zero
     private var grab: CGPoint = .zero      // overlay coords at mouse-down
     private var grabLocal: CGPoint = .zero // sheet-local
-    private var lastMove: (point: CGPoint, time: TimeInterval)?
-    private var tearStarted = false
+    private var mouse: CGPoint = .zero     // overlay coords, latest
+    private var broken = 0                 // perforation holes torn so far
+    private var targetBroken = 0
+    private var breakTimer: Timer?
+    private var breakInterval: TimeInterval = 0.045
+    private var dropWhenFree = false
+    private var lastBreakTime: TimeInterval = 0
 
     private var isActive: Bool { state != nil }
 
     // Tuning, in sheet points (multiplied by scale).
-    private let bendBeforeTear: CGFloat = 26
-    private let tearLength: CGFloat = 130
-    private let maxBend: CGFloat = 34
+    /// Pull needed before the first hole gives.
+    private let firstHolePull: CGFloat = 38
+    /// Extra pull to break every hole after that.
+    private let tearLength: CGFloat = 240
+    /// Paper hardly stretches.
+    private let maxBend: CGFloat = 6
     private let maxRotation: CGFloat = .pi / 4
 
     func begin(at screenPoint: CGPoint, sheetRect: CGRect, context: DayContext, layout: CardLayout,
@@ -94,9 +112,12 @@ final class TearController {
         let state = TearState(context: context, layout: layout, theme: theme, origin: origin, size: sheetRect.size)
         self.state = state
         grab = toOverlay(screenPoint)
+        mouse = grab
         grabLocal = CGPoint(x: grab.x - origin.x, y: grab.y - origin.y)
-        tearStarted = false
-        lastMove = nil
+        broken = 0
+        targetBroken = 0
+        breakInterval = 0.045
+        dropWhenFree = false
 
         let window = NSWindow(contentRect: overlayFrame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isOpaque = false
@@ -118,63 +139,32 @@ final class TearController {
 
     func move(to screenPoint: CGPoint, time: TimeInterval) {
         guard let state else { return }
-        let mouse = toOverlay(screenPoint)
-        let s = state.theme.scale
+        mouse = toOverlay(screenPoint)
 
         if state.isFree {
             // In hand: the grabbed point follows the mouse.
             let held = state.overlayPoint(local: grabLocal)
             state.translation.width += mouse.x - held.x
             state.translation.height += mouse.y - held.y
-            lastMove = (mouse, time)
             return
         }
 
+        // Until the first hole goes, pull direction picks the side the tear starts from.
         let d = CGPoint(x: mouse.x - grab.x, y: mouse.y - grab.y)
-        let distance = hypot(d.x, d.y)
-
-        // Until it starts tearing, pull direction picks the side the rip starts from.
-        if !tearStarted {
+        if broken == 0 {
             state.tearFromLeft = d.x >= 0
             state.hingeX = state.tearFromLeft ? state.size.width : 0
         }
 
-        let target = min(max((distance - bendBeforeTear * s) / (tearLength * s), 0), 1)
-        if target > state.progress {
-            if !tearStarted {
-                tearStarted = true
-                SoundPlayer.shared.startTearing()
-            }
-            let gained = target - state.progress
-            state.progress = target
-            SoundPlayer.shared.setTearIntensity(Double(gained) * 25)
-        } else {
-            SoundPlayer.shared.setTearIntensity(0)
+        let s = state.theme.scale
+        let pull = hypot(d.x, d.y)
+        let tension = (pull - firstHolePull * s) / (tearLength * s)
+        let target = tension < 0 ? 0 : min(Perforation.count, 1 + Int(tension * CGFloat(Perforation.count - 1)))
+        if target > targetBroken {
+            targetBroken = target
+            scheduleBreaks()
         }
-
-        // Swing about the hinge so the grabbed point heads towards the mouse; stronger as it tears.
-        let hinge = state.hinge
-        let from = atan2(grab.y - hinge.y, grab.x - hinge.x)
-        let to = atan2(mouse.y - hinge.y, mouse.x - hinge.x)
-        var angle = to - from
-        if angle > .pi { angle -= 2 * .pi }
-        if angle < -.pi { angle += 2 * .pi }
-        let hingeStrength = smoothstep(state.progress)
-        state.rotation = max(-maxRotation, min(maxRotation, angle * hingeStrength))
-
-        // Whatever the swing doesn't cover becomes bend, rubber-banded so paper never stretches far.
-        let held = state.overlayPoint(local: grabLocal)
-        let rest = CGPoint(x: mouse.x - held.x, y: mouse.y - held.y)
-        let c = cos(-state.rotation), sn = sin(-state.rotation)
-        let local = CGPoint(x: rest.x * c - rest.y * sn, y: rest.x * sn + rest.y * c)
-        let len = hypot(local.x, local.y)
-        let limit = maxBend * s
-        let bent = len > 0 ? limit * tanh(len / (limit * 2.2)) / len : 0
-        state.pull = CGSize(width: local.x * bent, height: local.y * bent)
-
-        lastMove = (mouse, time)
-
-        if state.progress >= 1 { tearOff() }
+        updatePose()
     }
 
     func end(at screenPoint: CGPoint, time: TimeInterval) {
@@ -183,13 +173,17 @@ final class TearController {
 
         if state.isFree {
             drop()
-        } else if state.progress > 0.5 {
-            // Far enough: finish the rip and leave the sheet where it is.
-            tearOff()
-            drop()
+        } else if broken * 2 >= Perforation.count {
+            // Past halfway: zip through the remaining holes, then let it fall free where it is.
+            dropWhenFree = true
+            targetBroken = Perforation.count
+            breakInterval = 0.022
+            scheduleBreaks()
         } else {
+            breakTimer?.invalidate()
+            breakTimer = nil
             SoundPlayer.shared.stopTearing()
-            if tearStarted || hypot(state.pull.width, state.pull.height) > 4 {
+            if broken > 0 || hypot(state.pull.width, state.pull.height) > 2 {
                 SoundPlayer.shared.play("rustle", volume: 0.8)
             }
             withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) {
@@ -204,15 +198,92 @@ final class TearController {
         }
     }
 
+    // MARK: - Perforations
+
+    /// Breaks holes one at a time until `targetBroken`, never faster than `breakInterval` apart.
+    private func scheduleBreaks() {
+        guard breakTimer == nil else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastBreakTime >= breakInterval { breakNextHole() }
+        guard broken < targetBroken else { return }
+        breakTimer = Timer.scheduledTimer(withTimeInterval: breakInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                guard self.broken < self.targetBroken, self.state != nil else {
+                    self.breakTimer?.invalidate()
+                    self.breakTimer = nil
+                    return
+                }
+                self.breakNextHole()
+            }
+        }
+    }
+
+    private func breakNextHole() {
+        guard let state, broken < targetBroken else { return }
+        broken += 1
+        lastBreakTime = ProcessInfo.processInfo.systemUptime
+
+        if broken == 1 { SoundPlayer.shared.startTearing() }
+        SoundPlayer.shared.play("perf", volume: Float.random(in: 0.55...0.95), pitchJitter: 0.15)
+        SoundPlayer.shared.setTearIntensity(0.35)
+        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+
+        // Each hole gives with a small snap: the sheet jumps a little further into its swing.
+        withAnimation(.spring(response: 0.14, dampingFraction: 0.5)) {
+            state.progress = CGFloat(broken) / CGFloat(Perforation.count)
+            updatePose()
+        }
+
+        if broken >= Perforation.count {
+            breakTimer?.invalidate()
+            breakTimer = nil
+            tearOff()
+            if dropWhenFree { drop() }
+        }
+    }
+
+    /// Swing and bend for the current mouse position and tear progress.
+    private func updatePose() {
+        guard let state, !state.isFree else { return }
+        let s = state.theme.scale
+
+        // Swing about the hinge so the grabbed point heads towards the mouse; the more holes
+        // have gone, the freer the sheet is to swing.
+        let hinge = state.hinge
+        let from = atan2(grab.y - hinge.y, grab.x - hinge.x)
+        let to = atan2(mouse.y - hinge.y, mouse.x - hinge.x)
+        var angle = to - from
+        if angle > .pi { angle -= 2 * .pi }
+        if angle < -.pi { angle += 2 * .pi }
+        let freedom = smoothstep(state.progress)
+        state.rotation = max(-maxRotation, min(maxRotation, angle * freedom))
+
+        // The rest is tension: paper gives only a few points, rubber-banded hard.
+        let held = state.overlayPoint(local: grabLocal)
+        let rest = CGPoint(x: mouse.x - held.x, y: mouse.y - held.y)
+        let c = cos(-state.rotation), sn = sin(-state.rotation)
+        let local = CGPoint(x: rest.x * c - rest.y * sn, y: rest.x * sn + rest.y * c)
+        let len = hypot(local.x, local.y)
+        let limit = maxBend * s
+        let bent = len > 0 ? limit * tanh(len / (limit * 6)) / len : 0
+        state.pull = CGSize(width: local.x * bent, height: local.y * bent)
+    }
+
     private func tearOff() {
         guard let state, !state.isFree else { return }
         SoundPlayer.shared.stopTearing()
-        SoundPlayer.shared.play("rip")
+        SoundPlayer.shared.play("rip", volume: 0.55)
         state.progress = 1
         state.isFree = true
-        // Paper relaxes once it's free of the pull.
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        // Paper relaxes once it's free, and the grabbed point catches up with the hand.
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
             state.pull = .zero
+            if !dropWhenFree {
+                let held = state.overlayPoint(local: grabLocal)
+                state.translation.width += mouse.x - held.x
+                state.translation.height += mouse.y - held.y
+            }
         }
         onTornOff()
     }
@@ -231,6 +302,8 @@ final class TearController {
     }
 
     private func finish() {
+        breakTimer?.invalidate()
+        breakTimer = nil
         overlay?.orderOut(nil)
         overlay = nil
         state = nil
@@ -241,7 +314,7 @@ final class TearController {
     }
 
     private func smoothstep(_ x: CGFloat) -> CGFloat {
-        let t = min(max(x / 0.35, 0), 1)
+        let t = min(max(x / 0.4, 0), 1)
         return t * t * (3 - 2 * t)
     }
 }
@@ -252,10 +325,10 @@ struct TearOverlayView: View {
     @Environment(\.cardTheme) private var theme
 
     var body: some View {
-        let inset = theme.u(60)
+        let inset = theme.u(20)
         let padded = CGSize(width: state.size.width + inset * 2, height: state.size.height + inset * 2)
-        let lift = min(1, hypot(state.pull.width, state.pull.height) / theme.u(34) + state.progress * 0.5
-                       + (state.isFree ? 0.4 : 0))
+        let lift = min(1, 0.3 * hypot(state.pull.width, state.pull.height) / theme.u(6) + state.progress * 0.6
+                       + (state.isFree ? 0.3 : 0))
 
         ZStack(alignment: .topLeading) {
             Color.clear
