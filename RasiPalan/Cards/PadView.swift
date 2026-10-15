@@ -144,7 +144,7 @@ struct BindingStrip: View {
             .frame(maxHeight: .infinity)
 
             TornStubs(seed: seed)
-                .fill(Ink.paper)
+                .fill(theme.paper.color)
                 .overlay(TornStubs(seed: seed).stroke(.black.opacity(0.12), lineWidth: 0.5))
                 .frame(height: theme.u(7))
                 .offset(y: theme.u(5))

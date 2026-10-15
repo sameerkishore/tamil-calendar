@@ -54,6 +54,35 @@ enum PaperStock: String, Codable {
     }
 }
 
+/// Which paper the pad prints on, whatever the template says. The content stays the same;
+/// only the stock (and so the ink colours) changes.
+enum PaperChoice: String, Codable, CaseIterable {
+    /// The template's own paper.
+    case template
+    case light
+    case dark
+    /// Light paper in Light Mode, dark card in Dark Mode.
+    case system
+
+    var title: String {
+        switch self {
+        case .template: "As template"
+        case .light: "Light"
+        case .dark: "Dark"
+        case .system: "Match system"
+        }
+    }
+
+    func stock(template: PaperStock, systemIsDark: Bool) -> PaperStock {
+        switch self {
+        case .template: template
+        case .light: .newsprint
+        case .dark: .dark
+        case .system: systemIsDark ? .dark : .newsprint
+        }
+    }
+}
+
 /// Everything a block needs to draw itself at the right size and in the right language.
 /// All measurements in blocks go through `u(_:)` so the card stays vector-crisp at any scale.
 struct CardTheme {

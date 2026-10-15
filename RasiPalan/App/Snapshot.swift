@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Debug helper: `RasiPalan -snapshot /path/out.png` renders the pad to a PNG and quits,
 /// so the visuals can be checked without screen-recording access.
-/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`, `-snapshotLanguage english`, `-snapshotScale 2`.
+/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`, `-snapshotLanguage english`, `-snapshotScale 2`, `-snapshotPaper dark`.
 @MainActor
 enum Snapshot {
     static func renderPad(state: AppState, to url: URL) {
@@ -22,6 +22,7 @@ enum Snapshot {
 
         let model = PadModel(context: context, language: language, scale: scale)
         model.perforations = state.physics.holes
+        model.paperChoice = defaults.string(forKey: "snapshotPaper").flatMap(PaperChoice.init(rawValue:)) ?? .template
         let theme = model.theme()
         var content = AnyView(PadView(model: model, interactive: false))
 

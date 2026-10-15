@@ -49,6 +49,8 @@ struct AppState: Codable {
     /// The user's rasi (0 = Mesham) for the horoscope block.
     var myRasi: Int?
     var signNames: SignNames = .tamil
+    /// Overrides the template's paper: light, dark, or following the system appearance.
+    var paperChoice: PaperChoice = .template
     /// Calendars whose events are printed; nil means all of them.
     var eventCalendarIDs: [String]?
     var soundEnabled = true
@@ -100,6 +102,7 @@ struct AppState: Codable {
         customLayout = try? c.decodeIfPresent(CardLayout.self, forKey: .customLayout)
         myRasi = try c.decodeIfPresent(Int.self, forKey: .myRasi)
         signNames = (try? c.decodeIfPresent(SignNames.self, forKey: .signNames)) ?? .tamil
+        paperChoice = (try? c.decodeIfPresent(PaperChoice.self, forKey: .paperChoice)) ?? .template
         eventCalendarIDs = try c.decodeIfPresent([String].self, forKey: .eventCalendarIDs)
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()

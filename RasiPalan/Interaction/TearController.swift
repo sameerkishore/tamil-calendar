@@ -254,10 +254,11 @@ struct FoldedSheet: View {
     var torn: CGFloat
     var fromRight = false
     var extras: DayExtras?
+    @Environment(\.cardTheme) private var theme
 
     var body: some View {
         let face = SheetFace(context: context, layout: layout, extras: extras, torn: torn, tornFromLeft: !fromRight)
-        let paper = layout.paper.color
+        let paper = theme.paper.color
         let corner = CGPoint(x: fromRight ? size.width : 0, y: size.height)
         let len = hypot(fold.width, fold.height)
         ZStack(alignment: .topLeading) {

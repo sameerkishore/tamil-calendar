@@ -83,6 +83,10 @@ private struct SettingsView: View {
                         Button("Customize Sheet…") { app.showLayoutEditor() }
                     }
                 }
+                Picker("Paper", selection: Binding(get: { model.paperChoice }, set: { app.setPaperChoice($0) })) {
+                    ForEach(PaperChoice.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .help("Prints the same sheet on light newsprint or dark card")
                 LabeledContent("Size") {
                     HStack {
                         Slider(value: Binding(get: { Double(model.scale) },

@@ -27,9 +27,15 @@ final class PadModel {
     var extras: [CalendarDay: DayExtras] = [:]
     var myRasi: Int?
     var signNames: SignNames = .tamil
+    var paperChoice: PaperChoice = .template
+    /// macOS is in Dark Mode (for `PaperChoice.system`).
+    var systemIsDark = false
+
+    /// The stock the pad's sheets are printed on.
+    var paper: PaperStock { paperChoice.stock(template: layout.paper, systemIsDark: systemIsDark) }
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
-        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper,
+        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: paper,
                   myRasi: myRasi, signNames: signNames)
     }
 
@@ -71,6 +77,7 @@ final class AppController {
     private let frontHotKey = HotKey()
     private var layoutEditor: LayoutEditorWindowController?
     private(set) var personal: PersonalDataService?
+    private var appearanceObservation: NSKeyValueObservation?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -89,6 +96,7 @@ final class AppController {
         model.layout = Self.layout(id: store.state.layoutID, state: store.state)
         model.myRasi = store.state.myRasi
         model.signNames = store.state.signNames
+        model.paperChoice = store.state.paperChoice
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
@@ -97,6 +105,11 @@ final class AppController {
     }
 
     func start() {
+        appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated {
+                self?.model.systemIsDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            }
+        }
         SoundPlayer.shared.isEnabled = state.soundEnabled
         registerFrontShortcut()
         personal = PersonalDataService(store: store, model: model)
@@ -303,6 +316,12 @@ final class AppController {
         store.state.signNames = names
         store.save()
         model.signNames = names
+    }
+
+    func setPaperChoice(_ choice: PaperChoice) {
+        store.state.paperChoice = choice
+        store.save()
+        model.paperChoice = choice
     }
 
     func setEventCalendars(_ ids: [String]?) {
