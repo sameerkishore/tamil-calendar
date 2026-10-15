@@ -24,6 +24,7 @@ final class TearState {
     var translation: CGSize = .zero
     var rotation: CGFloat = 0
     var isFree = false
+    var extras: DayExtras?
 
     init(context: DayContext, layout: CardLayout, theme: CardTheme, origin: CGPoint, size: CGSize) {
         self.context = context
@@ -43,6 +44,7 @@ struct TornSheet {
     var rotation: CGFloat
     var scale: CGFloat
     var tornFromLeft: Bool
+    var extras: DayExtras?
 }
 
 /// One tear: drag across the sheet and it folds like a book page held by a bottom corner while
@@ -61,6 +63,8 @@ final class TearController {
     var onDrop: (TornSheet) -> Void = { _ in }
     /// Current feel settings, read at the start of each tear.
     var physics: () -> TearPhysics = { .defaults }
+    /// The personal data printed on a day's sheet.
+    var extras: (CalendarDay) -> DayExtras? = { _ in nil }
 
     private var p = TearPhysics.defaults
     private var overlay: NSWindow?
@@ -80,6 +84,7 @@ final class TearController {
         overlayFrame = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
         let origin = toOverlay(CGPoint(x: sheetRect.minX, y: sheetRect.maxY))
         let state = TearState(context: context, layout: layout, theme: theme, origin: origin, size: sheetRect.size)
+        state.extras = extras(context.day)
         self.state = state
         grab = toOverlay(screenPoint)
         held = false
@@ -203,7 +208,8 @@ final class TearController {
                          center: CGPoint(x: overlayFrame.minX + c.x, y: overlayFrame.maxY - c.y),
                          rotation: state.rotation,
                          scale: state.theme.scale,
-                         tornFromLeft: !state.fromRight))
+                         tornFromLeft: !state.fromRight,
+                         extras: state.extras))
         // Let the floating window appear before the overlay copy disappears.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.finish() }
     }
@@ -227,7 +233,7 @@ struct TearOverlayView: View {
         ZStack(alignment: .topLeading) {
             Color.clear
             FoldedSheet(context: state.context, layout: state.layout, size: state.size,
-                        fold: state.fold, torn: state.progress, fromRight: state.fromRight)
+                        fold: state.fold, torn: state.progress, fromRight: state.fromRight, extras: state.extras)
                 .rotationEffect(.radians(state.rotation))
                 .shadow(color: .black.opacity(state.isFree ? 0.3 : 0.15), radius: state.isFree ? 8 : 3,
                         y: state.isFree ? 5 : 2)
@@ -247,9 +253,10 @@ struct FoldedSheet: View {
     var fold: CGSize
     var torn: CGFloat
     var fromRight = false
+    var extras: DayExtras?
 
     var body: some View {
-        let face = SheetFace(context: context, layout: layout, torn: torn, tornFromLeft: !fromRight)
+        let face = SheetFace(context: context, layout: layout, extras: extras, torn: torn, tornFromLeft: !fromRight)
         let paper = layout.paper.color
         let corner = CGPoint(x: fromRight ? size.width : 0, y: size.height)
         let len = hypot(fold.width, fold.height)

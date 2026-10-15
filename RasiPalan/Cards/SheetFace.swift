@@ -8,6 +8,8 @@ struct SheetFace: View {
     let layout: CardLayout
     /// The sheet underneath, faintly visible through thin paper (only while on the pad).
     var showThrough: DayContext? = nil
+    /// Reminders, events and weather printed on this sheet.
+    var extras: DayExtras? = nil
     /// How much of the top edge has been torn (0…1), and from which side.
     var torn: CGFloat = 0
     var tornFromLeft = true
@@ -27,6 +29,8 @@ struct SheetFace: View {
                         .offset(x: theme.u(1.5), y: theme.u(-1))
                 }
                 CardSheetView(layout: layout, context: context)
+                    .environment(\.sheetExtras, extras)
+                    .frame(width: size.width, height: size.height, alignment: .top)
             }
         }
         .overlay(alignment: .top) {

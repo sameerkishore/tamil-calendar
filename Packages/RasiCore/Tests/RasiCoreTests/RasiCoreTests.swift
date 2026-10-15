@@ -225,3 +225,13 @@ struct ReferenceSheet {
         #expect(d > 11 && d < 15.5)
     }
 }
+
+@Suite struct HoroscopeTests {
+    @Test func stablePerDayAndSign() {
+        let day = CalendarDay(year: 2026, month: 10, day: 16)
+        #expect(Horoscope.lines(for: day, rasi: 3) == Horoscope.lines(for: day, rasi: 3))
+        #expect(Horoscope.lines(for: day, rasi: 3).count == 2)
+        let signs = Set((0..<12).map { Horoscope.lines(for: day, rasi: $0).map(\.en).joined() })
+        #expect(signs.count > 6)
+    }
+}

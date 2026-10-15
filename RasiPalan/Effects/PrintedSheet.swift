@@ -25,14 +25,16 @@ struct PrintedSheet<Content: View>: View {
             switch theme.paper {
             case .newsprint:
                 content
-                    .frame(width: size.width, height: size.height)
+                    // Overfull sheets lose their last blocks, never the header.
+                    .frame(width: size.width, height: size.height, alignment: .top)
                     .layerEffect(ShaderLibrary.newsprintInk(
                         .float(theme.scale), .float(seed), .float2(redOffset)),
                         maxSampleOffset: CGSize(width: theme.u(2), height: theme.u(2)))
                     .blendMode(.multiply)
             case .dark:
                 content
-                    .frame(width: size.width, height: size.height)
+                    // Overfull sheets lose their last blocks, never the header.
+                    .frame(width: size.width, height: size.height, alignment: .top)
                     .layerEffect(ShaderLibrary.darkStockInk(
                         .float(theme.scale), .float(seed), .float2(redOffset)),
                         maxSampleOffset: CGSize(width: theme.u(2), height: theme.u(2)))

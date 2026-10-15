@@ -20,6 +20,14 @@ struct CardLayout: Codable, Identifiable {
     var paper: PaperStock = .newsprint
     var rows: [Row]
 
+    init(id: String, name: String, summary: String = "", paper: PaperStock = .newsprint, rows: [Row]) {
+        self.id = id
+        self.name = name
+        self.summary = summary
+        self.paper = paper
+        self.rows = rows
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
@@ -42,6 +50,16 @@ struct CardLayout: Codable, Identifiable {
         /// Space above the row, in sheet points.
         var top: CGFloat = 0
 
+        init(blocks: [BlockSpec] = [], separators: Bool = false, height: CGFloat? = nil, flex: Bool = false,
+             ruleBelow: Bool = false, top: CGFloat = 0) {
+            self.blocks = blocks
+            self.separators = separators
+            self.height = height
+            self.flex = flex
+            self.ruleBelow = ruleBelow
+            self.top = top
+        }
+
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             blocks = try c.decodeIfPresent([BlockSpec].self, forKey: .blocks) ?? []
@@ -58,6 +76,11 @@ struct CardLayout: Codable, Identifiable {
     struct BlockSpec: Codable {
         var type: String
         var params: [String: String] = [:]
+
+        init(_ type: String, _ params: [String: String] = [:]) {
+            self.type = type
+            self.params = params
+        }
 
         init(from decoder: Decoder) throws {
             if let type = try? decoder.singleValueContainer().decode(String.self) {
@@ -86,6 +109,7 @@ struct CardLayout: Codable, Identifiable {
     }()
 
     static var classic: CardLayout { bundled["classic"]! }
+    static let customID = "custom"
 
     /// Gallery order.
     static var all: [CardLayout] {

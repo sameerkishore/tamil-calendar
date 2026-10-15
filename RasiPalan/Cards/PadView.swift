@@ -92,7 +92,8 @@ struct PadView: View {
 
                 // Show-through: tomorrow's sheet, faintly visible through thin paper.
                 SheetFace(context: top, layout: model.layout,
-                          showThrough: model.isTearing ? top.next() : model.nextContext)
+                          showThrough: model.isTearing ? top.next() : model.nextContext,
+                          extras: model.extras[top.day])
                     .overlay {
                         if interactive {
                             PointerTracker(began: onTearBegan, moved: onTearMoved, ended: onTearEnded)

@@ -1,4 +1,5 @@
 import AppKit
+import EventKit
 import RasiCore
 import SwiftUI
 
@@ -8,7 +9,7 @@ final class SettingsWindowController {
     private let window: NSWindow
 
     init(app: AppController) {
-        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 480, height: 600),
+        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 520, height: 720),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Tamil Calendar Settings"
         window.isReleasedWhenClosed = false
@@ -32,6 +33,11 @@ private struct SettingsView: View {
     @State private var sound: Bool
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
+    @State private var myRasi: Int?
+    @State private var remindersAccess: PersonalDataService.Access = .notAsked
+    @State private var calendarAccess: PersonalDataService.Access = .notAsked
+    @State private var calendars: [EKCalendar] = []
+    @State private var chosenCalendars: Set<String>?
 
     init(app: AppController, model: PadModel) {
         self.app = app
@@ -39,6 +45,8 @@ private struct SettingsView: View {
         _language = State(initialValue: app.state.language)
         _style = State(initialValue: app.state.style)
         _shortcut = State(initialValue: app.state.frontShortcut)
+        _myRasi = State(initialValue: app.state.myRasi)
+        _chosenCalendars = State(initialValue: app.state.eventCalendarIDs.map(Set.init))
         _sound = State(initialValue: app.state.soundEnabled)
         _openAtLogin = State(initialValue: app.opensAtLogin)
     }
@@ -68,7 +76,10 @@ private struct SettingsView: View {
 
             Section("Look") {
                 LabeledContent("Templates & board") {
-                    Button("Open Gallery…") { app.showGallery() }
+                    HStack {
+                        Button("Open Gallery…") { app.showGallery() }
+                        Button("Customize Sheet…") { app.showLayoutEditor() }
+                    }
                 }
                 LabeledContent("Size") {
                     HStack {
@@ -78,6 +89,36 @@ private struct SettingsView: View {
                         Text("\(Int((model.scale * 100).rounded()))%").monospacedDigit().frame(width: 44, alignment: .trailing)
                     }
                 }
+            }
+
+            Section {
+                Picker("Your rasi", selection: $myRasi) {
+                    Text("Not set").tag(Int?.none)
+                    ForEach(0..<12, id: \.self) { i in
+                        Text("\(RasiPalan.rasis[i].ta) (\(RasiPalan.rasis[i].en))").tag(Int?.some(i))
+                    }
+                }
+                accessRow("Reminders", access: remindersAccess, type: .reminder)
+                accessRow("Calendars", access: calendarAccess, type: .event)
+                if calendarAccess == .granted && !calendars.isEmpty {
+                    DisclosureGroup("Calendars to print") {
+                        ForEach(calendars, id: \.calendarIdentifier) { cal in
+                            Toggle(isOn: calendarBinding(cal.calendarIdentifier)) {
+                                HStack(spacing: 6) {
+                                    Circle().fill(Color(cgColor: cal.cgColor)).frame(width: 9, height: 9)
+                                    Text(cal.title)
+                                }
+                            }
+                        }
+                    }
+                }
+                Text("Weather comes from Open-Meteo, a free service. Only your city's rounded location is sent, and only while a Weather block is on your sheet.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: {
+                Text("Personal blocks")
+            } footer: {
+                Text("Add Horoscope, Reminders, Events or Weather blocks with Customize Sheet. They're read-only and printed for each sheet's own date.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
 
             Section("Desktop") {
@@ -125,6 +166,8 @@ private struct SettingsView: View {
         .onChange(of: language) { _, v in app.setLanguage(v) }
         .onChange(of: style) { _, v in app.setStyle(v) }
         .onChange(of: shortcut) { _, v in app.setFrontShortcut(v) }
+        .onChange(of: myRasi) { _, v in app.setMyRasi(v) }
+        .onAppear(perform: refreshAccess)
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }
         .onChange(of: openAtLogin) { _, v in
             app.setOpensAtLogin(v)
@@ -135,5 +178,47 @@ private struct SettingsView: View {
         } message: {
             Text("The sheets in between are skipped rather than torn off.")
         }
+    }
+
+    private func refreshAccess() {
+        guard let personal = app.personal else { return }
+        remindersAccess = personal.access(for: .reminder)
+        calendarAccess = personal.access(for: .event)
+        calendars = personal.eventCalendars()
+    }
+
+    @ViewBuilder
+    private func accessRow(_ title: String, access: PersonalDataService.Access, type: EKEntityType) -> some View {
+        LabeledContent(title) {
+            switch access {
+            case .granted:
+                Label("Allowed", systemImage: "checkmark.circle").foregroundStyle(.green)
+            case .notAsked:
+                Button("Allow Access…") {
+                    Task {
+                        _ = await app.personal?.requestAccess(for: type)
+                        refreshAccess()
+                        app.personal?.refresh()
+                    }
+                }
+            case .denied:
+                Button("Open Privacy Settings…") {
+                    let pane = type == .reminder ? "Privacy_Reminders" : "Privacy_Calendars"
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)")!)
+                }
+            }
+        }
+    }
+
+    /// nil selection means "all calendars"; ticking boxes switches to an explicit list.
+    private func calendarBinding(_ id: String) -> Binding<Bool> {
+        Binding(
+            get: { chosenCalendars?.contains(id) ?? true },
+            set: { on in
+                var set = chosenCalendars ?? Set(calendars.map(\.calendarIdentifier))
+                if on { set.insert(id) } else { set.remove(id) }
+                chosenCalendars = set
+                app.setEventCalendars(Array(set))
+            })
     }
 }

@@ -6,6 +6,7 @@ import SwiftUI
 struct CrumpledSheet: View {
     let context: DayContext
     let layout: CardLayout
+    var extras: DayExtras?
     var tornFromLeft = true
     var t: CGFloat
     @Environment(\.cardTheme) private var theme
@@ -15,7 +16,7 @@ struct CrumpledSheet: View {
 
     var body: some View {
         let size = CGSize(width: theme.u(PadView.sheetSize.width), height: theme.u(PadView.sheetSize.height))
-        SheetFace(context: context, layout: layout, torn: 1, tornFromLeft: tornFromLeft)
+        SheetFace(context: context, layout: layout, extras: extras, torn: 1, tornFromLeft: tornFromLeft)
             .layerEffect(ShaderLibrary.crumple(.float2(size), .float(t), .float(theme.scale),
                                                .float(PrintedSheet<EmptyView>.seed(for: context.day))),
                          maxSampleOffset: size)

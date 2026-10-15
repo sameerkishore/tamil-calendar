@@ -36,6 +36,10 @@ enum BlockRegistry {
         ObservancesBlock.self,
         NallaNeramBlock.self,
         KuralBlock.self,
+        HoroscopeBlock.self,
+        RemindersBlock.self,
+        EventsBlock.self,
+        WeatherBlock.self,
     ]
 
     private static let byType: [String: any CardBlock.Type] =

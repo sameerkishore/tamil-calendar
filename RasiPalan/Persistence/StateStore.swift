@@ -42,6 +42,12 @@ struct AppState: Codable {
     var boardCrop = PhotoCrop()
     /// System-wide shortcut that brings the calendar in front / sends it back.
     var frontShortcut: FrontShortcut = .controlH
+    /// The user's own layout from the editor (layoutID "custom").
+    var customLayout: CardLayout?
+    /// The user's rasi (0 = Mesham) for the horoscope block.
+    var myRasi: Int?
+    /// Calendars whose events are printed; nil means all of them.
+    var eventCalendarIDs: [String]?
     var soundEnabled = true
     var physics = TearPhysics()
 
@@ -87,6 +93,9 @@ struct AppState: Codable {
         boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
         boardCrop = (try? c.decodeIfPresent(PhotoCrop.self, forKey: .boardCrop)) ?? PhotoCrop()
         frontShortcut = (try? c.decodeIfPresent(FrontShortcut.self, forKey: .frontShortcut)) ?? .controlH
+        customLayout = try? c.decodeIfPresent(CardLayout.self, forKey: .customLayout)
+        myRasi = try c.decodeIfPresent(Int.self, forKey: .myRasi)
+        eventCalendarIDs = try c.decodeIfPresent([String].self, forKey: .eventCalendarIDs)
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }

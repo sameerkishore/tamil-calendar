@@ -9,14 +9,15 @@ final class TemplateGalleryWindowController {
     private let window: NSWindow
 
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
-         choosePicture: @escaping () -> Void, adjustPicture: @escaping () -> Void) {
+         choosePicture: @escaping () -> Void, customize: @escaping () -> Void, adjustPicture: @escaping () -> Void,
+         customLayout: @escaping () -> CardLayout?) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 760, height: 640),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
             model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
-            adjustPicture: adjustPicture))
+            customize: customize, adjustPicture: adjustPicture, customLayout: customLayout))
     }
 
     func show() {
@@ -31,13 +32,19 @@ private struct TemplateGalleryView: View {
     let chooseLayout: (String) -> Void
     let chooseBoard: (BoardStyle) -> Void
     let choosePicture: () -> Void
+    let customize: () -> Void
     let adjustPicture: () -> Void
+    let customLayout: () -> CardLayout?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Sheet design").font(.title3.bold())
+            HStack {
+                Text("Sheet design").font(.title3.bold())
+                Spacer()
+                Button("Customize Sheet…", action: customize)
+            }
             HStack(alignment: .top, spacing: 14) {
-                ForEach(CardLayout.all) { layout in
+                ForEach(CardLayout.all + [customLayout()].compactMap { $0 }) { layout in
                     let theme = CardTheme(scale: 0.52, language: model.language, perforations: model.perforations,
                                           paper: layout.paper)
                     Button { chooseLayout(layout.id) } label: {

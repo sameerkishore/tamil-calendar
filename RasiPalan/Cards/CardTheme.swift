@@ -49,6 +49,8 @@ struct CardTheme {
     /// Holes in the perforation along the top of each sheet.
     var perforations: Int = TearPhysics.defaults.holes
     var paper: PaperStock = .newsprint
+    /// The user's own rasi (0 = Mesham), for the horoscope block.
+    var myRasi: Int?
 
     func u(_ points: CGFloat) -> CGFloat { points * scale }
 

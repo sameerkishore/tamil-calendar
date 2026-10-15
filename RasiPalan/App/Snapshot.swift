@@ -83,6 +83,28 @@ enum Snapshot {
             content = AnyView(PadView(model: model, interactive: false))
         }
 
+        // -snapshotPersonal 1: a custom layout with the personal blocks, filled with sample data.
+        if defaults.double(forKey: "snapshotPersonal") > 0 {
+            let draft = LayoutDraft(from: .classic)
+            draft.items = [
+                .init(type: PanchangamBlock.type), .init(type: TimingsBlock.type),
+                .init(type: WeatherBlock.type), .init(type: HoroscopeBlock.type),
+                .init(type: EventsBlock.type, params: ["max": "3"]), .init(type: RemindersBlock.type, params: ["max": "3"]),
+            ]
+            draft.footer = true
+            let sample = DayExtras(
+                reminders: ["Pay electricity bill", "அம்மாவுக்கு போன் பண்ணு", "Buy flowers", "Return library book"],
+                events: [PrintedEvent(time: nil, title: "Navaratri holiday"), PrintedEvent(time: "9.30", title: "Team standup"),
+                         PrintedEvent(time: "6", title: "Temple with family")],
+                weather: PrintedWeather(code: 95, high: 31.4, low: 24.6, rain: 70))
+            var t = theme
+            t.myRasi = 4
+            content = AnyView(HStack(spacing: 20) {
+                SheetFace(context: context, layout: draft.layout, extras: sample).environment(\.cardTheme, t)
+                SheetFace(context: context, layout: draft.layout, extras: nil).environment(\.cardTheme, CardTheme(scale: 1, language: language))
+            }.padding(20))
+        }
+
         let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,

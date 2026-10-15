@@ -1,4 +1,4 @@
-# Rasi Palan
+# Tamil Calendar
 
 A tear-off South Indian daily calendar for the macOS desktop. The date only changes when you
 tear the sheet off. Torn sheets lie on the desktop; click one to crumple it, then toss it in the bin.
@@ -21,6 +21,7 @@ generated from `project.yml`; run `xcodegen generate` to open it in Xcode.
 | `RasiPalan/Cards` | Sheet rendering: blocks, JSON layouts, boards, theme |
 | `RasiPalan/Effects/Newsprint.metal` | Print, paper, crumple and board shaders |
 | `RasiPalan/Interaction` | Tearing and its settings |
+| `RasiPalan/Personal` | Reminders, Calendar events (EventKit) and Open-Meteo weather for printed blocks |
 | `RasiPalan/Windows` | Pad, floating sheets, paper balls, bin, settings and gallery windows |
 | `RasiPalan/Resources/Layouts` | Templates as JSON |
 | `scripts/make_sounds.swift` | Synthesises the paper sounds |

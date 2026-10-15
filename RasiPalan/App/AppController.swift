@@ -22,9 +22,13 @@ final class PadModel {
     var boardCrop = PhotoCrop()
     /// The pad (and torn sheets, balls, bin) float above all windows instead of the desktop.
     var keepOnTop = false
+    /// Reminders, events and weather for the days on the pad.
+    var extras: [CalendarDay: DayExtras] = [:]
+    var myRasi: Int?
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
-        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper)
+        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper,
+                  myRasi: myRasi)
     }
 
     init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
@@ -61,6 +65,8 @@ final class AppController {
     private var photoCrop: PhotoCropWindowController?
     private var settings: SettingsWindowController?
     private let frontHotKey = HotKey()
+    private var layoutEditor: LayoutEditorWindowController?
+    private(set) var personal: PersonalDataService?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -76,7 +82,8 @@ final class AppController {
         model = PadModel(context: Self.context(for: store.state), language: store.state.language,
                          scale: store.state.padScale)
         model.perforations = store.state.physics.holes
-        model.layout = CardLayout.bundled[store.state.layoutID] ?? .classic
+        model.layout = Self.layout(id: store.state.layoutID, state: store.state)
+        model.myRasi = store.state.myRasi
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
@@ -86,6 +93,8 @@ final class AppController {
     func start() {
         SoundPlayer.shared.isEnabled = state.soundEnabled
         registerFrontShortcut()
+        personal = PersonalDataService(store: store, model: model)
+        personal?.refresh()
         let pad = PadWindowController(store: store, model: model)
         self.pad = pad
         menuBar = MenuBarController(app: self, pad: pad)
@@ -124,6 +133,7 @@ final class AppController {
         tear.onLift = { [weak self] in self?.model.isTearing = true }
         tear.onSettle = { [weak self] in self?.model.isTearing = false }
         tear.onTornOff = { [weak self] in self?.advancePad() }
+        tear.extras = { [weak self] day in self?.model.extras[day] }
         tear.onDrop = { [weak self] sheet in
             guard let self, let pad = self.pad else { return }
             floatingSheets?.add(sheet, level: pad.level)
@@ -148,7 +158,9 @@ final class AppController {
 
     private func commit() {
         store.save()
+        let dayChanged = model.context.day != store.state.padDay
         model.context = Self.context(for: store.state)
+        if dayChanged { personal?.refresh() }
         model.nextContext = model.context.next()
         model.language = store.state.language
     }
@@ -230,6 +242,12 @@ final class AppController {
         }
     }
 
+    func showLayoutEditor() {
+        // Fresh each time, starting from whatever the pad is printed with now.
+        layoutEditor = LayoutEditorWindowController(app: self)
+        layoutEditor?.show()
+    }
+
     func showGallery() {
         if gallery == nil {
             gallery = TemplateGalleryWindowController(
@@ -237,16 +255,46 @@ final class AppController {
                 chooseLayout: { [weak self] in self?.setLayout($0) },
                 chooseBoard: { [weak self] in self?.setBoard($0) },
                 choosePicture: { [weak self] in self?.chooseBoardImage() },
-                adjustPicture: { [weak self] in self?.adjustBoardImage() })
+                customize: { [weak self] in self?.showLayoutEditor() },
+                adjustPicture: { [weak self] in self?.adjustBoardImage() },
+                customLayout: { [weak self] in self?.state.customLayout })
         }
         gallery?.show()
     }
 
+    /// A bundled template, or the user's own layout ("custom").
+    static func layout(id: String, state: AppState) -> CardLayout {
+        if id == CardLayout.customID, let custom = state.customLayout { return custom }
+        return CardLayout.bundled[id] ?? .classic
+    }
+
     func setLayout(_ id: String) {
-        guard let layout = CardLayout.bundled[id] else { return }
+        guard id != CardLayout.customID || state.customLayout != nil else { return }
         store.state.layoutID = id
         store.save()
+        model.layout = Self.layout(id: id, state: store.state)
+        personal?.refresh()
+    }
+
+    /// Saves the user's own layout and switches to it.
+    func saveCustomLayout(_ layout: CardLayout) {
+        store.state.customLayout = layout
+        store.state.layoutID = CardLayout.customID
+        store.save()
         model.layout = layout
+        personal?.refresh()
+    }
+
+    func setMyRasi(_ rasi: Int?) {
+        store.state.myRasi = rasi
+        store.save()
+        model.myRasi = rasi
+    }
+
+    func setEventCalendars(_ ids: [String]?) {
+        store.state.eventCalendarIDs = ids
+        store.save()
+        personal?.refresh()
     }
 
     func setBoard(_ board: BoardStyle) {
