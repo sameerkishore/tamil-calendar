@@ -29,7 +29,7 @@
 	<key>NSCalendarsUsageDescription</key>
 	<string>Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Paper sounds, artwork and almanac all made in code. Thirukkural couplets by Thiruvalluvar.</string>
+	<string>© 2026 Sameer Kishore. All rights reserved.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>Tamil Calendar uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

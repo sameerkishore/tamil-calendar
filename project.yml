@@ -40,7 +40,7 @@ targets:
         NSRemindersUsageDescription: Tamil Calendar prints the reminders due on each sheet's day. It only reads them.
         NSCalendarsFullAccessUsageDescription: Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.
         NSCalendarsUsageDescription: Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.
-        NSHumanReadableCopyright: "Paper sounds, artwork and almanac all made in code. Thirukkural couplets by Thiruvalluvar."
+        NSHumanReadableCopyright: "© 2026 Sameer Kishore. All rights reserved."
         NSLocationUsageDescription: Tamil Calendar uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.
         NSLocationWhenInUseUsageDescription: Tamil Calendar uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.
     settings:

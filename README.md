@@ -30,3 +30,9 @@ generated from `project.yml`; run `xcodegen generate` to open it in Xcode.
 
 Debug builds accept `-snapshot out.png` (plus `-snapshotTemplates 1`, `-snapshotBoard temple`, …)
 to render offscreen; see `RasiPalan/App/Snapshot.swift`.
+
+## Credits
+
+© 2026 Sameer Kishore. All rights reserved.
+
+Made with ❤️ by Sameer (and Claude).

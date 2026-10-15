@@ -48,6 +48,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(debugRoot)
         #endif
 
+        menu.addItem(item(NSMenuItem(), "About Tamil Calendar", #selector(showAbout)))
         menu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
         menu.addItem(item(NSMenuItem(), "Quit Tamil Calendar", #selector(quit), key: "q"))
         statusItem.menu = menu
@@ -69,6 +70,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let main = NSMenu()
 
         let appMenu = NSMenu()
+        appMenu.addItem(item(NSMenuItem(), "About Tamil Calendar", #selector(showAbout)))
+        appMenu.addItem(.separator())
         appMenu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Tamil Calendar", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
@@ -122,6 +125,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func showGallery() { app.showGallery() }
     @objc private func clearDesktop() { app.clearDesktop() }
     @objc private func showSettings() { app.showSettings() }
+
+    /// The standard About panel; the copyright line comes from Info.plist.
+    @objc private func showAbout() {
+        let style = NSMutableParagraphStyle()
+        style.alignment = .center
+        let credits = NSAttributedString(
+            string: "Made with ❤️ by Sameer (and Claude)\n\nPaper sounds, artwork and almanac all made in code.\nThirukkural couplets by Thiruvalluvar.",
+            attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize),
+                         .foregroundColor: NSColor.secondaryLabelColor,
+                         .paragraphStyle: style])
+        NSApp.activate()
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+    }
     @objc private func previousDay() { app.shiftPadDay(by: -1) }
     @objc private func nextDay() { app.shiftPadDay(by: 1) }
     @objc private func backToToday() { app.resetPadDayToToday() }
