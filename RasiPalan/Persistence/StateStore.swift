@@ -27,6 +27,9 @@ struct AppState: Codable {
     var padScale: CGFloat
     /// Last size used on each display, so moving the pad between screens restores its size there.
     var padScalesByDisplay: [String: CGFloat]
+    /// Torn sheets lying around the desktop.
+    var floatingSheets: [FloatingSheetRecord] = []
+    var soundEnabled = true
 
     static func fresh() -> AppState {
         AppState(padDay: .today(), padOrigin: nil, keepOnTop: false,
@@ -61,6 +64,8 @@ struct AppState: Codable {
         language = (try? c.decodeIfPresent(CardLanguage.self, forKey: .language)) ?? defaults.language
         padScale = try c.decodeIfPresent(CGFloat.self, forKey: .padScale) ?? defaults.padScale
         padScalesByDisplay = try c.decodeIfPresent([String: CGFloat].self, forKey: .padScalesByDisplay) ?? [:]
+        floatingSheets = (try? c.decodeIfPresent([FloatingSheetRecord].self, forKey: .floatingSheets)) ?? []
+        soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
     }
 }
 

@@ -11,6 +11,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let dateItem = NSMenuItem()
     private let tamilDateItem = NSMenuItem()
     private let keepOnTopItem = NSMenuItem()
+    private let soundItem = NSMenuItem()
     private let locationItem = NSMenuItem()
     private let automaticLocationItem = NSMenuItem()
     private let chooseCityItem = NSMenuItem()
@@ -98,13 +99,14 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         #if DEBUG
         let debugMenu = NSMenu()
         debugMenu.addItem(item("Previous Day", #selector(previousDay), key: "["))
-        debugMenu.addItem(item("Next Day (until tearing works)", #selector(nextDay), key: "]"))
+        debugMenu.addItem(item("Next Day", #selector(nextDay), key: "]"))
         debugMenu.addItem(item("Back to Today", #selector(backToToday)))
         let debugRoot = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
         debugRoot.submenu = debugMenu
         menu.addItem(debugRoot)
         #endif
 
+        menu.addItem(item(soundItem, "Sound Effects", #selector(toggleSound)))
         menu.addItem(.separator())
         menu.addItem(item("About Rasi Palan", #selector(showAbout)))
         menu.addItem(item("Quit Rasi Palan", #selector(quit), key: "q"))
@@ -144,6 +146,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         tamilDateItem.title = "\(ctx.tamil.month.ta) \(ctx.tamil.day) · \(ctx.tamil.yearName.ta) "
             + "(\(ctx.tamil.month.en) \(ctx.tamil.day), \(ctx.tamil.yearName.en))"
         keepOnTopItem.state = app.state.keepOnTop ? .on : .off
+        soundItem.state = app.state.soundEnabled ? .on : .off
 
         let source = app.state.locationSource
         let suffix = switch source {
@@ -169,9 +172,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func showPad() { pad.show() }
 
     @objc private func toggleKeepOnTop() {
-        app.store.state.keepOnTop.toggle()
-        app.store.save()
-        pad.applyLevel()
+        app.setKeepOnTop(!app.state.keepOnTop)
+    }
+
+    @objc private func toggleSound() {
+        app.setSoundEnabled(!app.state.soundEnabled)
     }
 
     @objc private func resetPosition() { pad.resetPosition() }

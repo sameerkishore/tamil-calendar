@@ -46,6 +46,10 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     private var scaleAtDragStart: CGFloat = 1
     private var pendingSave: DispatchWorkItem?
 
+    var onTearBegan: (CGPoint) -> Void = { _ in }
+    var onTearMoved: (CGPoint, TimeInterval) -> Void = { _, _ in }
+    var onTearEnded: (CGPoint, TimeInterval) -> Void = { _, _ in }
+
     /// Sits just above the desktop icons and below every normal app window.
     private static let desktopLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
 
@@ -58,7 +62,10 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         let host = PadHostingView(rootView: PadView(
             model: model,
             onResizeBegin: { [weak self] in self?.beginResize() },
-            onResize: { [weak self] distance in self?.resize(byDragging: distance) }))
+            onResize: { [weak self] distance in self?.resize(byDragging: distance) },
+            onTearBegan: { [weak self] p in self?.onTearBegan(p) },
+            onTearMoved: { [weak self] p, t in self?.onTearMoved(p, t) },
+            onTearEnded: { [weak self] p, t in self?.onTearEnded(p, t) }))
         host.onScaleBy = { [weak self] factor in
             guard let self else { return }
             setScale(self.model.scale * factor)
@@ -86,8 +93,19 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         window.orderFront(nil)
     }
 
+    var level: NSWindow.Level { store.state.keepOnTop ? .floating : Self.desktopLevel }
+
     func applyLevel() {
-        window.level = store.state.keepOnTop ? .floating : Self.desktopLevel
+        window.level = level
+    }
+
+    /// The top sheet's rectangle in screen coordinates (AppKit, y up).
+    var sheetScreenRect: CGRect {
+        let s = model.scale, f = window.frame
+        return CGRect(x: f.minX + PadView.margin * s,
+                      y: f.maxY - (PadView.margin + PadView.gripHeight + PadView.sheetSize.height) * s,
+                      width: PadView.sheetSize.width * s,
+                      height: PadView.sheetSize.height * s)
     }
 
     // MARK: - Size

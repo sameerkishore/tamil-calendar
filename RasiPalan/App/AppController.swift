@@ -12,6 +12,8 @@ final class PadModel {
     var layout: CardLayout
     var language: CardLanguage
     var scale: CGFloat
+    /// The top sheet is off being torn; the pad shows the next day on top.
+    var isTearing = false
 
     init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
         self.context = context
@@ -38,6 +40,8 @@ final class AppController {
     private var pad: PadWindowController?
     private var menuBar: MenuBarController?
     private var cityPicker: CityPickerWindowController?
+    private let tear = TearController()
+    private var floatingSheets: FloatingSheetsController?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -55,10 +59,31 @@ final class AppController {
     }
 
     func start() {
+        SoundPlayer.shared.isEnabled = state.soundEnabled
         let pad = PadWindowController(store: store, model: model)
         self.pad = pad
         menuBar = MenuBarController(app: self, pad: pad)
         pad.show()
+
+        let sheets = FloatingSheetsController(store: store, model: model)
+        sheets.onClick = { _ in SoundPlayer.shared.play("rustle", volume: 0.6) } // crumpling arrives in milestone 5
+        sheets.restore(level: pad.level)
+        floatingSheets = sheets
+
+        pad.onTearBegan = { [weak self] point in
+            guard let self else { return }
+            tear.begin(at: point, sheetRect: pad.sheetScreenRect, context: model.context, layout: model.layout,
+                       theme: CardTheme(scale: model.scale, language: model.language), level: pad.level)
+        }
+        pad.onTearMoved = { [weak self] point, time in self?.tear.move(to: point, time: time) }
+        pad.onTearEnded = { [weak self] point, time in self?.tear.end(at: point, time: time) }
+        tear.onLift = { [weak self] in self?.model.isTearing = true }
+        tear.onSettle = { [weak self] in self?.model.isTearing = false }
+        tear.onTornOff = { [weak self] in self?.advancePad() }
+        tear.onDrop = { [weak self] sheet in
+            guard let self, let pad = self.pad else { return }
+            floatingSheets?.add(sheet, level: pad.level)
+        }
         updateAutomaticLocation()
 
         NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
@@ -143,7 +168,27 @@ final class AppController {
         commit()
     }
 
-    /// Debug only: stand-in for tearing until milestone 4.
+    /// A sheet came off: the pad moves on to the next day.
+    private func advancePad() {
+        store.state.padDay = store.state.padDay.adding(days: 1)
+        model.isTearing = false
+        commit()
+    }
+
+    func setKeepOnTop(_ on: Bool) {
+        store.state.keepOnTop = on
+        store.save()
+        pad?.applyLevel()
+        if let pad { floatingSheets?.setLevel(pad.level) }
+    }
+
+    func setSoundEnabled(_ on: Bool) {
+        store.state.soundEnabled = on
+        store.save()
+        SoundPlayer.shared.isEnabled = on
+    }
+
+    /// Debug: browse dates without tearing.
     func shiftPadDay(by days: Int) {
         store.state.padDay = store.state.padDay.adding(days: days)
         commit()

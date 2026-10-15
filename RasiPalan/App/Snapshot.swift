@@ -21,8 +21,28 @@ enum Snapshot {
         let scale = CGFloat(defaults.double(forKey: "snapshotScale").nonZero ?? 1)
 
         let model = PadModel(context: context, language: language, scale: scale)
-        let renderer = ImageRenderer(content: PadView(model: model, interactive: false)
-            .background(Color(white: 0.85)))
+        let theme = CardTheme(scale: scale, language: language)
+        var content = AnyView(PadView(model: model, interactive: false))
+
+        // -snapshotTear 0.6: the top sheet mid-tear, swung and bent, over the pad.
+        let tear = defaults.double(forKey: "snapshotTear")
+        if tear > 0 {
+            model.isTearing = true
+            let size = CGSize(width: theme.u(PadView.sheetSize.width), height: theme.u(PadView.sheetSize.height))
+            let origin = CGPoint(x: theme.u(PadView.margin) + 60, y: theme.u(PadView.margin + PadView.gripHeight) + 40)
+            let state = TearState(context: context, layout: model.layout, theme: theme, origin: origin, size: size)
+            state.progress = tear
+            state.tearFromLeft = true
+            state.hingeX = size.width
+            state.rotation = -0.45 * tear
+            state.pull = CGSize(width: theme.u(-12), height: theme.u(22))
+            content = AnyView(ZStack(alignment: .topLeading) {
+                PadView(model: model, interactive: false).padding(.leading, 60).padding(.top, 40)
+                TearOverlayView(state: state).environment(\.cardTheme, theme)
+            }.frame(width: 700, height: 700, alignment: .topLeading))
+        }
+
+        let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,
               let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])

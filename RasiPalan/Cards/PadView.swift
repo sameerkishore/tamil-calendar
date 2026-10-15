@@ -9,6 +9,9 @@ struct PadView: View {
     var interactive = true
     var onResizeBegin: () -> Void = {}
     var onResize: (CGFloat) -> Void = { _ in }
+    var onTearBegan: (CGPoint) -> Void = { _ in }
+    var onTearMoved: (CGPoint, TimeInterval) -> Void = { _, _ in }
+    var onTearEnded: (CGPoint, TimeInterval) -> Void = { _, _ in }
 
     static let sheetSize = CGSize(width: 300, height: 380)
     static let gripHeight: CGFloat = 26
@@ -28,9 +31,11 @@ struct PadView: View {
     var body: some View {
         let theme = CardTheme(scale: model.scale, language: model.language)
         let sheet = CGSize(width: theme.u(Self.sheetSize.width), height: theme.u(Self.sheetSize.height))
+        // While the top sheet is being torn it's drawn by the tear overlay; the next one shows here.
+        let top = model.isTearing ? model.nextContext : model.context
 
         VStack(spacing: 0) {
-            BindingStrip(day: model.context.day)
+            BindingStrip(day: top.day)
                 .frame(height: theme.u(Self.gripHeight))
                 .overlay { if interactive { WindowDragHandle() } }
                 .help("Drag here to move the calendar")
@@ -46,17 +51,16 @@ struct PadView: View {
                         .offset(y: theme.u(CGFloat(i) * Self.stackStep))
                 }
 
-                PrintedSheet(day: model.context.day, size: sheet) {
-                    ZStack {
-                        // Show-through: tomorrow's sheet, faintly visible through thin paper.
-                        CardSheetView(layout: model.layout, context: model.nextContext)
-                            .opacity(0.07)
-                            .blur(radius: theme.u(0.8))
-                            .offset(x: theme.u(1.5), y: theme.u(-1))
-                        CardSheetView(layout: model.layout, context: model.context)
+                // Show-through: tomorrow's sheet, faintly visible through thin paper.
+                SheetFace(context: top, layout: model.layout,
+                          showThrough: model.isTearing ? top.next() : model.nextContext)
+                    .overlay {
+                        if interactive {
+                            PointerTracker(began: onTearBegan, moved: onTearMoved, ended: onTearEnded)
+                                .help("Pull the sheet to tear it off")
+                        }
                     }
-                }
-                .overlay(alignment: .bottomTrailing) {
+                    .overlay(alignment: .bottomTrailing) {
                     if interactive && hovering {
                         ResizeGrip(onBegin: onResizeBegin, onDrag: onResize)
                             .frame(width: theme.u(18), height: theme.u(18))
