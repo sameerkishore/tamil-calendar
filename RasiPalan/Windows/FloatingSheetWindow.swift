@@ -145,7 +145,7 @@ struct FloatingSheetView: View {
     let model: PadModel
 
     var body: some View {
-        let theme = CardTheme(scale: record.scale, language: model.language)
+        let theme = model.theme(scale: record.scale)
         SheetFace(context: record.context, layout: model.layout, torn: 1, tornFromLeft: record.tornFromLeft)
             .rotationEffect(.radians(record.rotation))
             .shadow(color: .black.opacity(0.3), radius: theme.u(8), x: theme.u(1), y: theme.u(5))

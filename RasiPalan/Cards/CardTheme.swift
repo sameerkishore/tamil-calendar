@@ -31,6 +31,8 @@ enum Ink {
 struct CardTheme {
     var scale: CGFloat = 1
     var language: CardLanguage = .tamilEnglish
+    /// Holes in the perforation along the top of each sheet.
+    var perforations: Int = TearPhysics.defaults.holes
 
     func u(_ points: CGFloat) -> CGFloat { points * scale }
 

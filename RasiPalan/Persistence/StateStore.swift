@@ -30,6 +30,7 @@ struct AppState: Codable {
     /// Torn sheets lying around the desktop.
     var floatingSheets: [FloatingSheetRecord] = []
     var soundEnabled = true
+    var physics = TearPhysics()
 
     static func fresh() -> AppState {
         AppState(padDay: .today(), padOrigin: nil, keepOnTop: false,
@@ -66,6 +67,7 @@ struct AppState: Codable {
         padScalesByDisplay = try c.decodeIfPresent([String: CGFloat].self, forKey: .padScalesByDisplay) ?? [:]
         floatingSheets = (try? c.decodeIfPresent([FloatingSheetRecord].self, forKey: .floatingSheets)) ?? []
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
+        physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }
 }
 

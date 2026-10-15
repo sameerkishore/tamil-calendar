@@ -31,24 +31,26 @@ struct SheetFace: View {
         }
         .overlay(alignment: .top) {
             if torn < 1 {
-                PerforationRow(torn: torn, fromLeft: tornFromLeft)
+                PerforationRow(count: theme.perforations, torn: torn, fromLeft: tornFromLeft)
                     .frame(height: theme.u(2))
                     .padding(.top, theme.u(3))
             }
         }
         .clipShape(TornSheetShape(seed: PrintedSheet<EmptyView>.seed(for: context.day),
-                                  torn: torn, fromLeft: tornFromLeft, depth: theme.u(4.5)))
+                                  holes: theme.perforations, torn: torn, fromLeft: tornFromLeft,
+                                  depth: theme.u(4.5)))
     }
 }
 
 /// The row of punched holes the sheet tears along. Holes already torn through are gone.
 struct PerforationRow: View {
+    var count: Int
     var torn: CGFloat
     var fromLeft: Bool
 
     var body: some View {
         Canvas { ctx, size in
-            let n = Perforation.count
+            let n = count
             let step = size.width / CGFloat(n)
             let r = size.height / 2
             for i in 0..<n {
@@ -65,6 +67,7 @@ struct PerforationRow: View {
 /// The sheet's outline, with a ragged top edge along the part torn from the perforation.
 struct TornSheetShape: Shape {
     let seed: Float
+    var holes: Int
     var torn: CGFloat
     var fromLeft: Bool
     var depth: CGFloat
@@ -78,7 +81,7 @@ struct TornSheetShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         let perHole = 6
-        let teeth = Perforation.count * perHole
+        let teeth = holes * perHole
         for i in 0...teeth {
             let f = CGFloat(i) / CGFloat(teeth)
             let tornHere = fromLeft ? f <= torn : f >= 1 - torn

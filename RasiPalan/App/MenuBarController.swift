@@ -107,6 +107,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         #endif
 
         menu.addItem(item(soundItem, "Sound Effects", #selector(toggleSound)))
+        menu.addItem(item("Advanced Physics Settings…", #selector(showPhysics)))
         menu.addItem(.separator())
         menu.addItem(item("About Rasi Palan", #selector(showAbout)))
         menu.addItem(item("Quit Rasi Palan", #selector(quit), key: "q"))
@@ -174,6 +175,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func toggleKeepOnTop() {
         app.setKeepOnTop(!app.state.keepOnTop)
     }
+
+    @objc private func showPhysics() { app.showPhysicsSettings() }
 
     @objc private func toggleSound() {
         app.setSoundEnabled(!app.state.soundEnabled)

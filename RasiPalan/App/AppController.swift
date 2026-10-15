@@ -14,6 +14,11 @@ final class PadModel {
     var scale: CGFloat
     /// The top sheet is off being torn; the pad shows the next day on top.
     var isTearing = false
+    var perforations = TearPhysics.defaults.holes
+
+    func theme(scale: CGFloat? = nil) -> CardTheme {
+        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations)
+    }
 
     init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
         self.context = context
@@ -42,6 +47,7 @@ final class AppController {
     private var cityPicker: CityPickerWindowController?
     private let tear = TearController()
     private var floatingSheets: FloatingSheetsController?
+    private var physicsSettings: PhysicsSettingsWindowController?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -56,6 +62,7 @@ final class AppController {
         }
         model = PadModel(context: Self.context(for: store.state), language: store.state.language,
                          scale: store.state.padScale)
+        model.perforations = store.state.physics.holes
     }
 
     func start() {
@@ -73,10 +80,11 @@ final class AppController {
         pad.onTearBegan = { [weak self] point in
             guard let self else { return }
             tear.begin(at: point, sheetRect: pad.sheetScreenRect, context: model.context, layout: model.layout,
-                       theme: CardTheme(scale: model.scale, language: model.language), level: pad.level)
+                       theme: model.theme(), level: pad.level)
         }
         pad.onTearMoved = { [weak self] point, time in self?.tear.move(to: point, time: time) }
         pad.onTearEnded = { [weak self] point, time in self?.tear.end(at: point, time: time) }
+        tear.physics = { [weak self] in self?.state.physics ?? .defaults }
         tear.onLift = { [weak self] in self?.model.isTearing = true }
         tear.onSettle = { [weak self] in self?.model.isTearing = false }
         tear.onTornOff = { [weak self] in self?.advancePad() }
@@ -180,6 +188,18 @@ final class AppController {
         store.save()
         pad?.applyLevel()
         if let pad { floatingSheets?.setLevel(pad.level) }
+    }
+
+    func showPhysicsSettings() {
+        if physicsSettings == nil {
+            physicsSettings = PhysicsSettingsWindowController(physics: state.physics) { [weak self] physics in
+                guard let self else { return }
+                store.state.physics = physics
+                store.save()
+                model.perforations = physics.holes
+            }
+        }
+        physicsSettings?.show()
     }
 
     func setSoundEnabled(_ on: Bool) {

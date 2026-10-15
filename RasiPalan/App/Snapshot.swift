@@ -21,7 +21,8 @@ enum Snapshot {
         let scale = CGFloat(defaults.double(forKey: "snapshotScale").nonZero ?? 1)
 
         let model = PadModel(context: context, language: language, scale: scale)
-        let theme = CardTheme(scale: scale, language: language)
+        model.perforations = state.physics.holes
+        let theme = model.theme()
         var content = AnyView(PadView(model: model, interactive: false))
 
         // -snapshotTear 0.6: the top sheet mid-tear, swung and bent, over the pad.

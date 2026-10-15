@@ -57,11 +57,6 @@ struct TornSheet {
     var tornFromLeft: Bool
 }
 
-/// How many holes the perforation along the top of each sheet has.
-enum Perforation {
-    static let count = 28
-}
-
 /// Runs one tear gesture: shows the sheet in a full-screen transparent overlay while it's being
 /// pulled, breaks the perforation one hole at a time, and hands the free sheet over to become
 /// a floating window.
@@ -79,7 +74,10 @@ final class TearController {
     var onTornOff: () -> Void = {}
     /// The user let go of a free sheet: make it a floating window.
     var onDrop: (TornSheet) -> Void = { _ in }
+    /// Current feel settings, read at the start of each tear.
+    var physics: () -> TearPhysics = { .defaults }
 
+    private var p = TearPhysics.defaults
     private var overlay: NSWindow?
     private var state: TearState?
     private var overlayFrame: CGRect = .zero
@@ -95,18 +93,11 @@ final class TearController {
 
     private var isActive: Bool { state != nil }
 
-    // Tuning, in sheet points (multiplied by scale).
-    /// Pull needed before the first hole gives.
-    private let firstHolePull: CGFloat = 38
-    /// Extra pull to break every hole after that.
-    private let tearLength: CGFloat = 240
-    /// Paper hardly stretches.
-    private let maxBend: CGFloat = 6
-    private let maxRotation: CGFloat = .pi / 4
 
     func begin(at screenPoint: CGPoint, sheetRect: CGRect, context: DayContext, layout: CardLayout,
                theme: CardTheme, level: NSWindow.Level) {
         guard !isActive else { return }
+        p = physics()
         overlayFrame = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
         let origin = toOverlay(CGPoint(x: sheetRect.minX, y: sheetRect.maxY))
         let state = TearState(context: context, layout: layout, theme: theme, origin: origin, size: sheetRect.size)
@@ -116,7 +107,7 @@ final class TearController {
         grabLocal = CGPoint(x: grab.x - origin.x, y: grab.y - origin.y)
         broken = 0
         targetBroken = 0
-        breakInterval = 0.045
+        breakInterval = p.breakInterval
         dropWhenFree = false
 
         let window = NSWindow(contentRect: overlayFrame, styleMask: [.borderless], backing: .buffered, defer: false)
@@ -158,8 +149,8 @@ final class TearController {
 
         let s = state.theme.scale
         let pull = hypot(d.x, d.y)
-        let tension = (pull - firstHolePull * s) / (tearLength * s)
-        let target = tension < 0 ? 0 : min(Perforation.count, 1 + Int(tension * CGFloat(Perforation.count - 1)))
+        let tension = (pull - p.firstHolePull * s) / (p.tearLength * s)
+        let target = tension < 0 ? 0 : min(p.holes, 1 + Int(tension * CGFloat(p.holes - 1)))
         if target > targetBroken {
             targetBroken = target
             scheduleBreaks()
@@ -173,11 +164,11 @@ final class TearController {
 
         if state.isFree {
             drop()
-        } else if broken * 2 >= Perforation.count {
+        } else if broken * 2 >= p.holes {
             // Past halfway: zip through the remaining holes, then let it fall free where it is.
             dropWhenFree = true
-            targetBroken = Perforation.count
-            breakInterval = 0.022
+            targetBroken = p.holes
+            breakInterval = p.breakInterval / 2
             scheduleBreaks()
         } else {
             breakTimer?.invalidate()
@@ -227,15 +218,17 @@ final class TearController {
         if broken == 1 { SoundPlayer.shared.startTearing() }
         SoundPlayer.shared.play("perf", volume: Float.random(in: 0.55...0.95), pitchJitter: 0.15)
         SoundPlayer.shared.setTearIntensity(0.35)
-        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        if p.haptics {
+            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+        }
 
         // Each hole gives with a small snap: the sheet jumps a little further into its swing.
         withAnimation(.spring(response: 0.14, dampingFraction: 0.5)) {
-            state.progress = CGFloat(broken) / CGFloat(Perforation.count)
+            state.progress = CGFloat(broken) / CGFloat(p.holes)
             updatePose()
         }
 
-        if broken >= Perforation.count {
+        if broken >= p.holes {
             breakTimer?.invalidate()
             breakTimer = nil
             tearOff()
@@ -257,7 +250,7 @@ final class TearController {
         if angle > .pi { angle -= 2 * .pi }
         if angle < -.pi { angle += 2 * .pi }
         let freedom = smoothstep(state.progress)
-        state.rotation = max(-maxRotation, min(maxRotation, angle * freedom))
+        state.rotation = max(-p.maxSwing, min(p.maxSwing, angle * freedom))
 
         // The rest is tension: paper gives only a few points, rubber-banded hard.
         let held = state.overlayPoint(local: grabLocal)
@@ -265,7 +258,7 @@ final class TearController {
         let c = cos(-state.rotation), sn = sin(-state.rotation)
         let local = CGPoint(x: rest.x * c - rest.y * sn, y: rest.x * sn + rest.y * c)
         let len = hypot(local.x, local.y)
-        let limit = maxBend * s
+        let limit = p.maxBend * s
         let bent = len > 0 ? limit * tanh(len / (limit * 6)) / len : 0
         state.pull = CGSize(width: local.x * bent, height: local.y * bent)
     }

@@ -29,7 +29,7 @@ struct PadView: View {
     @State private var hovering = false
 
     var body: some View {
-        let theme = CardTheme(scale: model.scale, language: model.language)
+        let theme = model.theme()
         let sheet = CGSize(width: theme.u(Self.sheetSize.width), height: theme.u(Self.sheetSize.height))
         // While the top sheet is being torn it's drawn by the tear overlay; the next one shows here.
         let top = model.isTearing ? model.nextContext : model.context
