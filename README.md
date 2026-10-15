@@ -9,6 +9,7 @@ tear the sheet off. Torn sheets lie on the desktop; click one to crumple it, the
 ./scripts/run.sh        # debug build, launches from build/
 ./scripts/install.sh    # release build into /Applications (use this for Open at Login)
 ./scripts/make_dmg.sh   # universal release build packaged as build/Tamil Calendar.dmg for sharing
+./scripts/publish_release.sh 1.0.0  # Gitea release for an existing tag, with the DMG attached
 ```
 
 Requires Xcode, its Metal toolchain, and XcodeGen (`brew install xcodegen`). The Xcode project is
