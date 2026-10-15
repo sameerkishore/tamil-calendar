@@ -1,12 +1,13 @@
 {
   "id": "minimal",
   "name": "Minimal",
-  "summary": "A huge date, the weekday, a one-line Tamil date and Rahu Kalam.",
+  "summary": "A huge date, the weekday, a one-line Tamil date, Rahu Kalam and a Thirukkural.",
   "rows": [
-    { "blocks": [{ "type": "bigDate", "params": { "size": "160" } }], "top": 6 },
-    { "blocks": ["tamilDateLine"], "top": 4 },
-    { "blocks": [{ "type": "rule", "params": { "width": "0.35" } }], "top": 14 },
-    { "blocks": [{ "type": "timings", "params": { "only": "rahu" } }], "top": 12 },
+    { "blocks": [{ "type": "bigDate", "params": { "size": "150" } }], "top": 4 },
+    { "blocks": ["tamilDateLine"], "top": 2 },
+    { "blocks": [{ "type": "rule", "params": { "width": "0.35" } }], "top": 12 },
+    { "blocks": [{ "type": "timings", "params": { "only": "rahu" } }], "top": 10 },
+    { "blocks": ["kural"], "top": 14 },
     { "flex": true },
     { "blocks": ["footer"] }
   ]

@@ -1,12 +1,14 @@
 {
   "id": "classic",
   "name": "Classic",
-  "summary": "Like the calendar on the wall: English date left, Tamil date right, timings below.",
+  "summary": "Like the calendar on the wall: English date left, Tamil date right, almanac below.",
   "rows": [
-    { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 200, "ruleBelow": true },
-    { "blocks": ["timings"], "top": 12 },
-    { "blocks": ["sunTimes"], "top": 7 },
-    { "blocks": [{ "type": "comingSoon", "params": { "text": "Tithi, nakshatram, festivals and nalla neram arrive in milestone 8" } }], "top": 10 },
+    { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 186, "ruleBelow": true },
+    { "blocks": ["panchangam"], "top": 7 },
+    { "blocks": ["observances"], "top": 5 },
+    { "blocks": ["timings"], "top": 6 },
+    { "blocks": ["sunTimes"], "top": 4 },
+    { "blocks": ["nallaNeram"], "top": 6 },
     { "flex": true },
     { "blocks": ["footer"] }
   ]

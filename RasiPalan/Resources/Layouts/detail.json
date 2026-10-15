@@ -1,13 +1,15 @@
 {
   "id": "detail",
   "name": "Panchangam Detail",
-  "summary": "Dense like an almanac page: both dates, every timing and the day's Rasi Palan.",
+  "summary": "Dense like an almanac page: both dates, tithi and star, every timing and the Rasi Palan.",
   "rows": [
-    { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 178, "ruleBelow": true },
-    { "blocks": ["timings"], "top": 8 },
-    { "blocks": ["sunTimes"], "top": 5 },
-    { "blocks": [{ "type": "rule", "params": { "width": "0.9" } }], "top": 8 },
-    { "blocks": ["rasiPalan"], "top": 6 },
+    { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 170, "ruleBelow": true },
+    { "blocks": ["panchangam"], "top": 5 },
+    { "blocks": [{ "type": "observances", "params": { "direction": "hide" } }], "top": 3 },
+    { "blocks": ["timings"], "top": 4 },
+    { "blocks": [{ "type": "nallaNeram", "params": { "chandrashtamam": "hide" } }], "top": 4 },
+    { "blocks": [{ "type": "rule", "params": { "width": "0.9" } }], "top": 5 },
+    { "blocks": ["rasiPalan"], "top": 3 },
     { "flex": true },
     { "blocks": ["footer"] }
   ]

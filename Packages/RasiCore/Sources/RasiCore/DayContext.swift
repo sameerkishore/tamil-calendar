@@ -10,6 +10,9 @@ public struct DayContext: Hashable, Sendable {
     public var sunset: Date?
     public var timings: DayTimings
     public var style: PanchangamStyle
+    public var panchangam: Panchangam
+    public var observances: [LocalizedText]
+    public var kural: Kural
 
     public init(day: CalendarDay, location: GeoLocation, style: PanchangamStyle = .traditional) {
         self.day = day
@@ -20,6 +23,26 @@ public struct DayContext: Hashable, Sendable {
         sunset = Astronomy.sunEvent(.set, on: day, at: location)
         timings = DayTimings(day: day, sunrise: sunrise, sunset: sunset,
                              style: style, timeZone: location.timeZone)
+        panchangam = Panchangam(day: day, location: location, sunrise: sunrise)
+        observances = Observances.list(day: day, tamil: tamil,
+                                       nextTamil: TamilCalendar.date(for: day.adding(days: 1), at: location, style: style),
+                                       panchangam: panchangam)
+        kural = Kural.of(day)
+    }
+
+    /// When a tithi or star ends, worded the way calendars print it:
+    /// "நாள் முழுவதும்" (all day), "நள்ளிரவு கடந்து 3.10 வரை" (till 3.10 past midnight), "மாலை 5.20 வரை".
+    public func until(_ span: Panchangam.Span) -> LocalizedText {
+        guard span.next != nil else { return LocalizedText(ta: "நாள் முழுவதும்", en: "all day") }
+        let t = clock(span.ends)
+        if CalendarDay(containing: span.ends, in: location.timeZone) != day {
+            return LocalizedText(ta: "நள்ளிரவு கடந்து \(t) வரை", en: "till \(t) after midnight")
+        }
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = location.timeZone
+        let hour = cal.component(.hour, from: span.ends)
+        let part = hour < 12 ? "காலை" : hour < 16 ? "பகல்" : hour < 19 ? "மாலை" : "இரவு"
+        return LocalizedText(ta: "\(part) \(t) வரை", en: "till \(t) \(hour < 12 ? "am" : "pm")")
     }
 
     public var weekday: LocalizedText { Names.weekdays[day.weekday - 1] }

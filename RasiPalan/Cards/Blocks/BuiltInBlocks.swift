@@ -301,3 +301,126 @@ struct RuleBlock: CardBlock {
             .frame(width: theme.u(PadView.sheetSize.width) * share, height: max(1, theme.u(1)))
     }
 }
+
+/// "பஞ்சமி நள்ளிரவு கடந்து 3.10 வரை    கேட்டை நாள் முழுவதும்", then the yogam centred below.
+struct PanchangamBlock: CardBlock {
+    static let type = "panchangam"
+    static let displayName = "Tithi, star & yogam"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let c = context.day, p = c.panchangam
+        VStack(spacing: theme.u(2)) {
+            ViewThatFits(in: .horizontal) {
+                ForEach([1.0, 0.88, 0.76, 0.66] as [CGFloat], id: \.self) { k in
+                    HStack(spacing: theme.u(12 * k)) {
+                        span(p.tithi, k)
+                        span(p.nakshatra, k)
+                    }
+                    .fixedSize()
+                }
+            }
+            if context.params["yogam"] != "hide" {
+                theme.label(p.yogam, 11)
+            }
+        }
+        .padding(.horizontal, theme.u(10))
+    }
+
+    private func span(_ s: Panchangam.Span, _ k: CGFloat) -> some View {
+        let c = context.day
+        return HStack(spacing: theme.u(3 * k)) {
+            theme.label(s.name, 11.5 * k, bold: true)
+            theme.label(c.until(s), 10.5 * k)
+        }
+    }
+}
+
+/// Festivals and notable days, then the day's direction ("↔ சமநோக்கு நாள்").
+struct ObservancesBlock: CardBlock {
+    static let type = "observances"
+    static let displayName = "Festivals & observances"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let c = context.day
+        let joined = c.observances.map { theme.text($0) }.joined(separator: " ; ")
+        VStack(spacing: theme.u(2)) {
+            if !joined.isEmpty {
+                Text(joined)
+                    .font(theme.language == .english ? theme.latin(10) : theme.tamil(11))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            }
+            if context.params["direction"] != "hide" {
+                theme.label(Names.directions3[c.panchangam.direction.rawValue], 10.5)
+            }
+        }
+        .padding(.horizontal, theme.u(12))
+    }
+}
+
+/// Red "நல்ல நேரம்: 10.30-11  1-1.30", optionally with chandrashtamam.
+struct NallaNeramBlock: CardBlock {
+    static let type = "nallaNeram"
+    static let displayName = "Good times"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let c = context.day, p = c.panchangam
+        VStack(spacing: theme.u(3)) {
+            if context.params["chandrashtamam"] != "hide" {
+                HStack(spacing: theme.u(4)) {
+                    theme.label(Names.chandrashtamam, 10.5)
+                    Text(":").font(theme.latin(10))
+                    theme.label(LocalizedText(ta: p.chandrashtamam.map(\.ta).joined(separator: ", "),
+                                              en: p.chandrashtamam.map(\.en).joined(separator: ", ")), 10.5)
+                }
+            }
+            HStack(spacing: theme.u(6)) {
+                theme.label(Names.nallaNeram, 12, bold: true)
+                Text(":").font(theme.latin(11))
+                ForEach(Array(p.nallaNeram.enumerated()), id: \.offset) { _, span in
+                    Text(c.range(span)).font(theme.latin(11, bold: true))
+                }
+            }
+            .foregroundStyle(Ink.red)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .padding(.horizontal, theme.u(10))
+    }
+}
+
+/// The day's Thirukkural couplet (or its meaning, on English cards).
+struct KuralBlock: CardBlock {
+    static let type = "kural"
+    static let displayName = "Thirukkural"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let k = context.day.kural
+        VStack(spacing: theme.u(3)) {
+            if theme.language == .english {
+                Text("“\(k.meaning)”").font(theme.latin(10).italic())
+                Text("Thirukkural \(k.number)").font(theme.latin(8)).foregroundStyle(Ink.red)
+            } else {
+                Text(k.tamil).font(theme.tamil(10.5))
+                Text("திருக்குறள் \(k.number)").font(theme.tamil(8.5)).foregroundStyle(Ink.red)
+            }
+        }
+        .multilineTextAlignment(.center)
+        .lineLimit(3)
+        .minimumScaleFactor(0.75)
+        .padding(.horizontal, theme.u(16))
+    }
+}

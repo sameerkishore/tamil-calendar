@@ -207,3 +207,21 @@ struct ReferenceSheet {
         #expect(RasiPalan.words(for: day.adding(days: 1)) != a)
     }
 }
+
+@Suite struct PanchangamTests {
+    @Test func referenceSheet() {
+        // Rani Muthu sheet for 15 Oct 2026: Panchami (till 3.10 past midnight), Kettai all day.
+        let ctx = DayContext(day: CalendarDay(year: 2026, month: 10, day: 15), location: chennai)
+        print("ref:", ctx.panchangam.tithi.name.en, ctx.until(ctx.panchangam.tithi).en,
+              ctx.panchangam.nakshatra.name.en, ctx.until(ctx.panchangam.nakshatra).en, ctx.observances.map(\.en))
+        #expect(ctx.panchangam.tithi.name.en == "Panchami")
+        #expect(ctx.panchangam.nakshatra.name.en == "Kettai")
+        #expect(ctx.observances.contains { $0.en == "Abdul Kalam's birthday" })
+    }
+
+    @Test func moonMovesSensibly() {
+        let a = Date(timeIntervalSince1970: 1_800_000_000)
+        let d = Astronomy.signedDifference(Astronomy.moonLongitude(at: a.addingTimeInterval(86_400)), Astronomy.moonLongitude(at: a))
+        #expect(d > 11 && d < 15.5)
+    }
+}

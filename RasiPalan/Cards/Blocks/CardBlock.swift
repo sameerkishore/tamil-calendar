@@ -32,6 +32,10 @@ enum BlockRegistry {
         TamilDateLineBlock.self,
         RasiPalanBlock.self,
         RuleBlock.self,
+        PanchangamBlock.self,
+        ObservancesBlock.self,
+        NallaNeramBlock.self,
+        KuralBlock.self,
     ]
 
     private static let byType: [String: any CardBlock.Type] =
