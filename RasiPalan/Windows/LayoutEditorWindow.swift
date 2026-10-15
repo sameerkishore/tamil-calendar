@@ -37,6 +37,8 @@ final class LayoutDraft {
         let id = UUID()
         var type: String
         var params: [String: String] = [:]
+        /// Unchecked blocks stay in the list but aren't printed.
+        var enabled = true
     }
 
     var header: Header
@@ -89,7 +91,7 @@ final class LayoutDraft {
         case .none:
             break
         }
-        for (i, item) in items.enumerated() {
+        for (i, item) in items.filter(\.enabled).enumerated() {
             rows.append(.init(blocks: [.init(item.type, item.params)], top: i == 0 ? 8 : 6))
         }
         rows.append(.init(flex: true))
@@ -129,6 +131,7 @@ private struct LayoutEditorView: View {
 
     @State private var contentHeight: CGFloat = 0
     @State private var myRasi: Int?
+    @State private var signs: SignNames
 
     init(app: AppController, model: PadModel, draft: LayoutDraft, close: @escaping () -> Void) {
         self.app = app
@@ -136,6 +139,11 @@ private struct LayoutEditorView: View {
         self.draft = draft
         self.close = close
         _myRasi = State(initialValue: app.state.myRasi)
+        _signs = State(initialValue: app.state.signNames)
+    }
+
+    private func setAll(_ on: Bool) {
+        for i in draft.items.indices { draft.items[i].enabled = on }
     }
 
     private let previewScale: CGFloat = 1.15
@@ -155,7 +163,7 @@ private struct LayoutEditorView: View {
     private var preview: some View {
         let layout = draft.layout
         let theme = CardTheme(scale: previewScale, language: model.language, perforations: model.perforations,
-                              paper: layout.paper, myRasi: myRasi)
+                              paper: layout.paper, myRasi: myRasi, signNames: signs)
         let available = PadView.sheetSize.height
         let fits = contentHeight <= available + 0.5
         return VStack(spacing: 12) {
@@ -167,7 +175,8 @@ private struct LayoutEditorView: View {
                     CardSheetView(layout: CardLayout(id: "measure", name: "", paper: layout.paper,
                                                      rows: layout.rows.filter { !$0.flex }),
                                   context: model.context)
-                        .environment(\.cardTheme, CardTheme(scale: 1, language: model.language, myRasi: myRasi))
+                        .environment(\.cardTheme, CardTheme(scale: 1, language: model.language, myRasi: myRasi,
+                                                             signNames: signs))
                         .environment(\.sheetExtras, model.extras[model.context.day])
                         .frame(width: PadView.sheetSize.width)
                         .fixedSize(horizontal: false, vertical: true)
@@ -194,7 +203,7 @@ private struct LayoutEditorView: View {
                             Button(layout.name) { draft.load(layout) }
                         }
                     }
-                    Picker("Header", selection: $draft.header) {
+                    Picker("Header (dates)", selection: $draft.header) {
                         Text("Two columns").tag(LayoutDraft.Header.twoColumn)
                         Text("Big date").tag(LayoutDraft.Header.bigDate)
                         Text("None").tag(LayoutDraft.Header.none)
@@ -211,13 +220,22 @@ private struct LayoutEditorView: View {
                 Section {
                     List {
                         ForEach($draft.items) { $item in
-                            BlockRow(item: $item, myRasi: $myRasi, remove: {
-                                draft.items.removeAll { $0.id == item.id }
+                            // Capture the id now: reading `item` while removing it from the same
+                            // array is an exclusivity violation (that was the crash).
+                            BlockRow(item: $item, myRasi: $myRasi, signs: $signs, remove: { [id = item.id] in
+                                draft.items.removeAll { $0.id == id }
                             })
                         }
                         .onMove { draft.items.move(fromOffsets: $0, toOffset: $1) }
                     }
                     .frame(minHeight: 260)
+                    HStack {
+                        Button("Uncheck All") { setAll(false) }
+                        Button("Check All") { setAll(true) }
+                        Spacer()
+                        Button("Remove Unchecked") { draft.items.removeAll { !$0.enabled } }
+                            .disabled(draft.items.allSatisfy(\.enabled))
+                    }
                     Menu {
                         ForEach(addableBlocks, id: \.type) { block in
                             Button("\(block.name) — \(block.note)") {
@@ -228,7 +246,7 @@ private struct LayoutEditorView: View {
                         Label("Add Block", systemImage: "plus")
                     }
                 } header: {
-                    Text("Blocks (drag to reorder)")
+                    Text("Blocks: tick what to print, drag to reorder")
                 }
             }
             .formStyle(.grouped)
@@ -238,6 +256,7 @@ private struct LayoutEditorView: View {
                 Spacer()
                 Button("Use This Layout") {
                     if myRasi != app.state.myRasi { app.setMyRasi(myRasi) }
+                    if signs != app.state.signNames { app.setSignNames(signs) }
                     app.saveCustomLayout(draft.layout)
                     close()
                 }
@@ -252,20 +271,25 @@ private struct LayoutEditorView: View {
 private struct BlockRow: View {
     @Binding var item: LayoutDraft.Item
     @Binding var myRasi: Int?
+    @Binding var signs: SignNames
     let remove: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary)
+                Toggle("", isOn: $item.enabled).labelsHidden().toggleStyle(.checkbox)
                 Text(blockName(item.type)).font(.headline)
+                    .foregroundStyle(item.enabled ? .primary : .secondary)
                 Spacer()
                 Button(role: .destructive, action: remove) { Image(systemName: "minus.circle") }
                     .buttonStyle(.borderless)
                     .help("Remove block")
             }
-            options
-                .padding(.leading, 24)
+            if item.enabled {
+                options
+                    .padding(.leading, 44)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -289,12 +313,12 @@ private struct BlockRow: View {
                 get: { Int(item.params["max"] ?? "4") ?? 4 },
                 set: { item.params["max"] = String($0) }), in: 1...8)
         case HoroscopeBlock.type:
-            Picker("Your rasi", selection: $myRasi) {
-                Text("Choose…").tag(Int?.none)
-                ForEach(0..<12, id: \.self) { i in
-                    Text("\(RasiPalan.rasis[i].ta) (\(RasiPalan.rasis[i].en))").tag(Int?.some(i))
-                }
+            Picker("Sign names", selection: $signs) {
+                Text("Tamil rasi").tag(SignNames.tamil)
+                Text("Western zodiac").tag(SignNames.western)
             }
+            .pickerStyle(.segmented)
+            SignPicker(title: "Your sign", sign: $myRasi, names: signs)
         default:
             EmptyView()
         }
@@ -318,4 +342,23 @@ private struct BlockRow: View {
 private struct HeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
+/// Picks one of the 12 signs, listed as Tamil rasis or Western zodiac signs.
+struct SignPicker: View {
+    let title: String
+    @Binding var sign: Int?
+    let names: SignNames
+
+    var body: some View {
+        Picker(title, selection: $sign) {
+            Text("Choose…").tag(Int?.none)
+            ForEach(0..<12, id: \.self) { i in
+                Text(names == .western
+                     ? "\(Zodiac.symbols[i]) \(Zodiac.western[i]) (\(RasiPalan.rasis[i].ta))"
+                     : "\(RasiPalan.rasis[i].ta) (\(RasiPalan.rasis[i].en))")
+                    .tag(Int?.some(i))
+            }
+        }
+    }
 }

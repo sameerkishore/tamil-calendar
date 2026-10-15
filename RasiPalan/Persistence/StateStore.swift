@@ -46,6 +46,7 @@ struct AppState: Codable {
     var customLayout: CardLayout?
     /// The user's rasi (0 = Mesham) for the horoscope block.
     var myRasi: Int?
+    var signNames: SignNames = .tamil
     /// Calendars whose events are printed; nil means all of them.
     var eventCalendarIDs: [String]?
     var soundEnabled = true
@@ -95,6 +96,7 @@ struct AppState: Codable {
         frontShortcut = (try? c.decodeIfPresent(FrontShortcut.self, forKey: .frontShortcut)) ?? .controlH
         customLayout = try? c.decodeIfPresent(CardLayout.self, forKey: .customLayout)
         myRasi = try c.decodeIfPresent(Int.self, forKey: .myRasi)
+        signNames = (try? c.decodeIfPresent(SignNames.self, forKey: .signNames)) ?? .tamil
         eventCalendarIDs = try c.decodeIfPresent([String].self, forKey: .eventCalendarIDs)
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()

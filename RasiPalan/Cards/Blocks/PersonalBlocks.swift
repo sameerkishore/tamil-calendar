@@ -32,14 +32,20 @@ struct HoroscopeBlock: CardBlock {
     var body: some View {
         VStack(spacing: theme.u(2)) {
             if let rasi = theme.myRasi {
-                BlockHeading(text: LocalizedText(ta: "உங்கள் ராசி: " + RasiPalan.rasis[rasi].ta,
-                                                 en: "Your rasi: " + RasiPalan.rasis[rasi].en))
+                if theme.signNames == .western {
+                    Text("\(Zodiac.symbols[rasi]) \(Zodiac.western[rasi])")
+                        .font(theme.latin(9.5, bold: true))
+                        .foregroundStyle(Ink.red)
+                } else {
+                    BlockHeading(text: LocalizedText(ta: "உங்கள் ராசி: " + RasiPalan.rasis[rasi].ta,
+                                                     en: "Your rasi: " + RasiPalan.rasis[rasi].en))
+                }
                 ForEach(Horoscope.lines(for: context.day.day, rasi: rasi), id: \.self) { line in
                     theme.label(line, 11)
                 }
             } else {
                 FaintLine(text: LocalizedText(ta: "அமைப்புகளில் உங்கள் ராசியைத் தேர்ந்தெடுக்கவும்",
-                                              en: "Choose your rasi in Settings"))
+                                              en: "Choose your sign in Settings"))
             }
         }
         .multilineTextAlignment(.center)

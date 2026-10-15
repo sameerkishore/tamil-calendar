@@ -17,6 +17,19 @@ enum CardLanguage: String, Codable, CaseIterable {
     }
 }
 
+/// How the 12 signs are named: Tamil rasis (மேஷம் …) or the Western zodiac (Aries …).
+/// They pair one to one, Mesham with Aries through Meenam with Pisces.
+enum SignNames: String, Codable {
+    case tamil
+    case western
+}
+
+enum Zodiac {
+    static let western = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+                          "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
+    static let symbols = ["♈︎", "♉︎", "♊︎", "♋︎", "♌︎", "♍︎", "♎︎", "♏︎", "♐︎", "♑︎", "♒︎", "♓︎"]
+}
+
 /// The two inks of a cheap two-colour press, plus the paper they're printed on.
 /// Blocks print with `black` or `red` only; the ink shader turns them into plates.
 enum Ink {
@@ -49,8 +62,9 @@ struct CardTheme {
     /// Holes in the perforation along the top of each sheet.
     var perforations: Int = TearPhysics.defaults.holes
     var paper: PaperStock = .newsprint
-    /// The user's own rasi (0 = Mesham), for the horoscope block.
+    /// The user's own sign (0 = Mesham / Aries), for the horoscope block.
     var myRasi: Int?
+    var signNames: SignNames = .tamil
 
     func u(_ points: CGFloat) -> CGFloat { points * scale }
 

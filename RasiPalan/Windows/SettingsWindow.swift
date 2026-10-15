@@ -34,6 +34,7 @@ private struct SettingsView: View {
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
     @State private var myRasi: Int?
+    @State private var signs: SignNames
     @State private var remindersAccess: PersonalDataService.Access = .notAsked
     @State private var calendarAccess: PersonalDataService.Access = .notAsked
     @State private var calendars: [EKCalendar] = []
@@ -46,6 +47,7 @@ private struct SettingsView: View {
         _style = State(initialValue: app.state.style)
         _shortcut = State(initialValue: app.state.frontShortcut)
         _myRasi = State(initialValue: app.state.myRasi)
+        _signs = State(initialValue: app.state.signNames)
         _chosenCalendars = State(initialValue: app.state.eventCalendarIDs.map(Set.init))
         _sound = State(initialValue: app.state.soundEnabled)
         _openAtLogin = State(initialValue: app.opensAtLogin)
@@ -92,12 +94,14 @@ private struct SettingsView: View {
             }
 
             Section {
-                Picker("Your rasi", selection: $myRasi) {
-                    Text("Not set").tag(Int?.none)
-                    ForEach(0..<12, id: \.self) { i in
-                        Text("\(RasiPalan.rasis[i].ta) (\(RasiPalan.rasis[i].en))").tag(Int?.some(i))
-                    }
+                Picker("Sign names", selection: $signs) {
+                    Text("Tamil rasi").tag(SignNames.tamil)
+                    Text("Western zodiac").tag(SignNames.western)
                 }
+                .pickerStyle(.segmented)
+                SignPicker(title: "Your sign", sign: $myRasi, names: signs)
+                Text("Horoscope lines are written into the app, not fetched: two stock lines a day for your sign, the same for a given date. For fun only.")
+                    .font(.caption).foregroundStyle(.secondary)
                 accessRow("Reminders", access: remindersAccess, type: .reminder)
                 accessRow("Calendars", access: calendarAccess, type: .event)
                 if calendarAccess == .granted && !calendars.isEmpty {
@@ -167,6 +171,7 @@ private struct SettingsView: View {
         .onChange(of: style) { _, v in app.setStyle(v) }
         .onChange(of: shortcut) { _, v in app.setFrontShortcut(v) }
         .onChange(of: myRasi) { _, v in app.setMyRasi(v) }
+        .onChange(of: signs) { _, v in app.setSignNames(v) }
         .onAppear(perform: refreshAccess)
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }
         .onChange(of: openAtLogin) { _, v in

@@ -25,10 +25,11 @@ final class PadModel {
     /// Reminders, events and weather for the days on the pad.
     var extras: [CalendarDay: DayExtras] = [:]
     var myRasi: Int?
+    var signNames: SignNames = .tamil
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
         CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper,
-                  myRasi: myRasi)
+                  myRasi: myRasi, signNames: signNames)
     }
 
     init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
@@ -84,6 +85,7 @@ final class AppController {
         model.perforations = store.state.physics.holes
         model.layout = Self.layout(id: store.state.layoutID, state: store.state)
         model.myRasi = store.state.myRasi
+        model.signNames = store.state.signNames
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
@@ -289,6 +291,12 @@ final class AppController {
         store.state.myRasi = rasi
         store.save()
         model.myRasi = rasi
+    }
+
+    func setSignNames(_ names: SignNames) {
+        store.state.signNames = names
+        store.save()
+        model.signNames = names
     }
 
     func setEventCalendars(_ ids: [String]?) {

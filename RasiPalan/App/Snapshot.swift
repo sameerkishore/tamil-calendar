@@ -105,6 +105,26 @@ enum Snapshot {
             }.padding(20))
         }
 
+        // -snapshotBlank 1: everything unchecked, next to a sheet with only a note and a Western horoscope.
+        if defaults.double(forKey: "snapshotBlank") > 0 {
+            let blank = LayoutDraft(from: .classic)
+            blank.header = .none
+            blank.footer = false
+            for i in blank.items.indices { blank.items[i].enabled = false }
+            let mine = LayoutDraft(from: .classic)
+            mine.header = .bigDate
+            mine.footer = false
+            mine.items = [.init(type: NoteBlock.type, params: ["text": "Call Amma at 7", "ink": "red"]),
+                          .init(type: HoroscopeBlock.type)]
+            var t = theme
+            t.myRasi = 7
+            t.signNames = .western
+            content = AnyView(HStack(spacing: 20) {
+                SheetFace(context: context, layout: blank.layout).environment(\.cardTheme, theme)
+                SheetFace(context: context, layout: mine.layout).environment(\.cardTheme, t)
+            }.padding(20))
+        }
+
         let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,
