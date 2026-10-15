@@ -72,15 +72,11 @@ struct BoardView: View {
     private func background(_ size: CGSize) -> some View {
         switch style {
         case .temple:
-            ZStack(alignment: .topLeading) {
-                Rectangle().fill(Color(red: 0.62, green: 0.12, blue: 0.20))
-                // Sun rays behind the tower.
-                RadialGradient(colors: [Color(red: 1, green: 0.8, blue: 0.35).opacity(0.75), .clear],
-                               center: UnitPoint(x: 0.5, y: 0.12), startRadius: 0, endRadius: size.width * 0.45)
-                Gopuram()
-                    .frame(width: theme.u(132), height: theme.u(118))
-                    .offset(x: size.width / 2 - theme.u(66), y: theme.u(20))
-            }
+            // A whole scene, drawn in sheet points and scaled to the board.
+            TempleScene()
+                .frame(width: BoardStyle.size.width, height: BoardStyle.size.height)
+                .scaleEffect(theme.scale, anchor: .topLeading)
+                .frame(width: size.width, height: size.height, alignment: .topLeading)
         case .kolam:
             ZStack(alignment: .topLeading) {
                 Rectangle().fill(Color(red: 0.07, green: 0.33, blue: 0.21))
@@ -92,6 +88,10 @@ struct BoardView: View {
             }
         case .plain, .none:
             Rectangle().fill(Color(red: 0.55, green: 0.10, blue: 0.16))
+                // Printed card, not flat colour: tone-on-tone rosettes and a fine linen grain.
+                .overlay(RosettePattern(spacing: theme.u(30))
+                    .stroke(Color(red: 0.42, green: 0.05, blue: 0.11).opacity(0.7), lineWidth: max(1, theme.u(1.1))))
+                .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
                 .overlay(RoundedRectangle(cornerRadius: theme.u(3))
                     .stroke(Color(red: 0.85, green: 0.68, blue: 0.3), lineWidth: theme.u(3))
                     .padding(theme.u(10)))
@@ -136,52 +136,180 @@ struct BoardView: View {
     }
 }
 
-/// A stylised South Indian temple tower: stacked tiers, a barrel-vault crown and kalasams.
-private struct Gopuram: View {
-    private static let stone = Color(red: 0.95, green: 0.84, blue: 0.62)
-    private static let shade = Color(red: 0.70, green: 0.50, blue: 0.30)
-    private static let gold = Color(red: 0.95, green: 0.72, blue: 0.20)
+/// Temple at sunset, in board points (480 × 464): sky, sun, a painted gopuram with striped
+/// compound walls running off to either side, coconut palms and birds. The pad hides the lower
+/// middle, so everything important sits above it or at the sides.
+private struct TempleScene: View {
+    private static let stone = Color(red: 0.96, green: 0.86, blue: 0.66)
+    private static let shade = Color(red: 0.62, green: 0.42, blue: 0.24)
+    private static let gold = Color(red: 0.98, green: 0.75, blue: 0.22)
+    private static let paints: [Color] = [
+        Color(red: 0.85, green: 0.22, blue: 0.20), Color(red: 0.16, green: 0.45, blue: 0.75),
+        Color(red: 0.20, green: 0.58, blue: 0.32), Color(red: 0.95, green: 0.70, blue: 0.18),
+        Color(red: 0.90, green: 0.45, blue: 0.65),
+    ]
 
     var body: some View {
         Canvas { ctx, size in
-            let w = size.width, h = size.height
-            let tiers = 5
-            let tierH = h * 0.13
-            var bottom = h
-            for i in 0..<tiers {
-                let f = CGFloat(i) / CGFloat(tiers)
-                let bw = w * (1 - f * 0.55), tw = w * (1 - (f + 0.2) * 0.55)
-                let x0 = (w - bw) / 2, x1 = (w - tw) / 2
-                var tier = Path()
-                tier.move(to: CGPoint(x: x0, y: bottom))
-                tier.addLine(to: CGPoint(x: x0 + bw, y: bottom))
-                tier.addLine(to: CGPoint(x: x1 + tw, y: bottom - tierH))
-                tier.addLine(to: CGPoint(x: x1, y: bottom - tierH))
-                tier.closeSubpath()
-                ctx.fill(tier, with: .color(Self.stone))
-                ctx.stroke(tier, with: .color(Self.shade), lineWidth: 1)
-                // Niches along each tier.
-                let niches = 7 - i
-                for n in 0..<niches {
-                    let nx = x0 + bw * (CGFloat(n) + 0.5) / CGFloat(niches)
-                    ctx.fill(Path(CGRect(x: nx - 1.5, y: bottom - tierH * 0.8, width: 3, height: tierH * 0.55)),
-                             with: .color(Self.shade.opacity(0.8)))
-                }
-                bottom -= tierH
+            let w = size.width, mid = w / 2
+            let ground: CGFloat = 148   // just above where the pad starts
+
+            // Sky: saffron to pink, deepening to the board's maroon at the band.
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(
+                Gradient(stops: [
+                    .init(color: Color(red: 0.99, green: 0.62, blue: 0.22), location: 0),
+                    .init(color: Color(red: 0.93, green: 0.40, blue: 0.36), location: 0.22),
+                    .init(color: Color(red: 0.62, green: 0.12, blue: 0.20), location: 0.45),
+                    .init(color: Color(red: 0.55, green: 0.09, blue: 0.17), location: 1),
+                ]), startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+
+            // Sun and its rays behind the tower.
+            for i in 0..<16 {
+                let a = CGFloat(i) / 16 * .pi * 2
+                var ray = Path()
+                ray.move(to: CGPoint(x: mid, y: 70))
+                ray.addLine(to: CGPoint(x: mid + cos(a - 0.06) * 260, y: 70 + sin(a - 0.06) * 260))
+                ray.addLine(to: CGPoint(x: mid + cos(a + 0.06) * 260, y: 70 + sin(a + 0.06) * 260))
+                ray.closeSubpath()
+                ctx.fill(ray, with: .color(.white.opacity(0.07)))
             }
-            // Barrel-vault crown.
-            let cw = w * 0.42, ch = h * 0.12
-            let crown = Path(roundedRect: CGRect(x: (w - cw) / 2, y: bottom - ch, width: cw, height: ch),
-                             cornerSize: CGSize(width: ch * 0.6, height: ch * 0.6))
-            ctx.fill(crown, with: .color(Self.stone))
-            ctx.stroke(crown, with: .color(Self.shade), lineWidth: 1)
-            // Kalasams.
-            for k in 0..<5 {
-                let kx = (w - cw) / 2 + cw * (CGFloat(k) + 0.5) / 5
-                ctx.fill(Path(ellipseIn: CGRect(x: kx - 3, y: bottom - ch - 8, width: 6, height: 8)), with: .color(Self.gold))
-                ctx.fill(Path(CGRect(x: kx - 0.6, y: bottom - ch - 13, width: 1.2, height: 6)), with: .color(Self.gold))
+            ctx.fill(Path(ellipseIn: CGRect(x: mid - 60, y: 10, width: 120, height: 120)),
+                     with: .radialGradient(Gradient(colors: [Color(red: 1, green: 0.93, blue: 0.6), Color(red: 1, green: 0.75, blue: 0.3).opacity(0)]),
+                                           center: CGPoint(x: mid, y: 70), startRadius: 10, endRadius: 60))
+
+            // Birds.
+            for (bx, by, bs) in [(70.0, 40.0, 7.0), (92.0, 30.0, 5.0), (395.0, 48.0, 6.0), (412.0, 36.0, 4.5)] as [(CGFloat, CGFloat, CGFloat)] {
+                var bird = Path()
+                bird.move(to: CGPoint(x: bx - bs, y: by - bs * 0.3))
+                bird.addQuadCurve(to: CGPoint(x: bx, y: by), control: CGPoint(x: bx - bs * 0.5, y: by - bs * 0.6))
+                bird.addQuadCurve(to: CGPoint(x: bx + bs, y: by - bs * 0.3), control: CGPoint(x: bx + bs * 0.5, y: by - bs * 0.6))
+                ctx.stroke(bird, with: .color(.black.opacity(0.55)), lineWidth: 1.2)
             }
+
+            // Coconut palms at the edges.
+            palm(ctx, base: CGPoint(x: 28, y: ground + 4), lean: 14, height: 110)
+            palm(ctx, base: CGPoint(x: 452, y: ground + 4), lean: -16, height: 120)
+
+            // Compound walls with red and white vertical stripes, running off both sides.
+            let wallTop = ground - 26
+            for x in stride(from: CGFloat(0), to: w, by: 10) {
+                let red = Int(x / 10) % 2 == 0
+                ctx.fill(Path(CGRect(x: x, y: wallTop, width: 10, height: 30)),
+                         with: .color(red ? Color(red: 0.80, green: 0.18, blue: 0.15) : Color(red: 0.97, green: 0.93, blue: 0.85)))
+            }
+            ctx.fill(Path(CGRect(x: 0, y: wallTop - 4, width: w, height: 5)), with: .color(Self.stone))
+            ctx.fill(Path(CGRect(x: 0, y: wallTop + 1, width: w, height: 1)), with: .color(Self.shade.opacity(0.6)))
+
+            // The gopuram.
+            gopuram(ctx, centerX: mid, base: ground, width: 150, height: 112)
         }
+    }
+
+    private func gopuram(_ ctx: GraphicsContext, centerX: CGFloat, base: CGFloat, width: CGFloat, height: CGFloat) {
+        // Stone gateway base with a dark doorway.
+        let baseH = height * 0.18
+        let baseRect = CGRect(x: centerX - width / 2, y: base - baseH, width: width, height: baseH)
+        ctx.fill(Path(baseRect), with: .color(Self.stone))
+        ctx.stroke(Path(baseRect), with: .color(Self.shade), lineWidth: 1)
+        var door = Path()
+        door.move(to: CGPoint(x: centerX - 11, y: base))
+        door.addLine(to: CGPoint(x: centerX - 11, y: base - baseH * 0.6))
+        door.addQuadCurve(to: CGPoint(x: centerX + 11, y: base - baseH * 0.6), control: CGPoint(x: centerX, y: base - baseH * 1.05))
+        door.addLine(to: CGPoint(x: centerX + 11, y: base))
+        ctx.fill(door, with: .color(Color(red: 0.2, green: 0.08, blue: 0.06)))
+
+        // Seven painted tiers, narrowing upwards, each with a ledge and figures in niches.
+        let tiers = 7
+        let tierH = height * 0.095
+        var bottom = base - baseH
+        for i in 0..<tiers {
+            let f = CGFloat(i) / CGFloat(tiers)
+            let bw = width * (0.92 - f * 0.5), tw = width * (0.92 - (f + 1 / CGFloat(tiers)) * 0.5)
+            var tier = Path()
+            tier.move(to: CGPoint(x: centerX - bw / 2, y: bottom))
+            tier.addLine(to: CGPoint(x: centerX + bw / 2, y: bottom))
+            tier.addLine(to: CGPoint(x: centerX + tw / 2, y: bottom - tierH))
+            tier.addLine(to: CGPoint(x: centerX - tw / 2, y: bottom - tierH))
+            tier.closeSubpath()
+            ctx.fill(tier, with: .linearGradient(Gradient(colors: [Self.stone.opacity(0.85), Self.stone, Self.shade.opacity(0.6)]),
+                                                 startPoint: CGPoint(x: centerX - bw / 2, y: 0), endPoint: CGPoint(x: centerX + bw / 2, y: 0)))
+            // Ledge.
+            ctx.fill(Path(CGRect(x: centerX - tw / 2 - 2, y: bottom - tierH - 1.5, width: tw + 4, height: 2.5)), with: .color(Self.shade))
+            // Painted figures.
+            let niches = max(3, 9 - i)
+            for n in 0..<niches {
+                let nx = centerX - bw / 2 + bw * (CGFloat(n) + 0.5) / CGFloat(niches)
+                let paint = Self.paints[(n + i * 2) % Self.paints.count]
+                ctx.fill(Path(roundedRect: CGRect(x: nx - 2.2, y: bottom - tierH * 0.82, width: 4.4, height: tierH * 0.62),
+                              cornerRadius: 2), with: .color(paint))
+                ctx.fill(Path(ellipseIn: CGRect(x: nx - 1.6, y: bottom - tierH * 0.95, width: 3.2, height: 3.2)), with: .color(paint.opacity(0.9)))
+            }
+            bottom -= tierH
+        }
+
+        // Barrel-vault crown (shala) with horned ends and golden kalasams.
+        let cw = width * 0.44, ch = height * 0.1
+        let crown = Path(roundedRect: CGRect(x: centerX - cw / 2, y: bottom - ch, width: cw, height: ch),
+                         cornerSize: CGSize(width: ch * 0.7, height: ch * 0.7))
+        ctx.fill(crown, with: .color(Self.stone))
+        ctx.stroke(crown, with: .color(Self.shade), lineWidth: 1)
+        for side in [-1.0, 1.0] as [CGFloat] {
+            var horn = Path()
+            horn.move(to: CGPoint(x: centerX + side * cw / 2, y: bottom - ch * 0.6))
+            horn.addQuadCurve(to: CGPoint(x: centerX + side * (cw / 2 + 7), y: bottom - ch * 1.3),
+                              control: CGPoint(x: centerX + side * (cw / 2 + 7), y: bottom - ch * 0.5))
+            ctx.stroke(horn, with: .color(Self.shade), lineWidth: 2)
+        }
+        for k in 0..<7 {
+            let kx = centerX - cw / 2 + cw * (CGFloat(k) + 0.5) / 7
+            ctx.fill(Path(ellipseIn: CGRect(x: kx - 3, y: bottom - ch - 8, width: 6, height: 8)), with: .color(Self.gold))
+            ctx.fill(Path(CGRect(x: kx - 0.6, y: bottom - ch - 13, width: 1.2, height: 6)), with: .color(Self.gold))
+        }
+    }
+
+    private func palm(_ ctx: GraphicsContext, base: CGPoint, lean: CGFloat, height: CGFloat) {
+        let top = CGPoint(x: base.x + lean, y: base.y - height)
+        var trunk = Path()
+        trunk.move(to: base)
+        trunk.addQuadCurve(to: top, control: CGPoint(x: base.x + lean * 0.2, y: base.y - height * 0.5))
+        let dark = Color(red: 0.12, green: 0.10, blue: 0.08).opacity(0.85)
+        ctx.stroke(trunk, with: .color(dark), lineWidth: 4)
+        for i in 0..<7 {
+            let a = -CGFloat.pi / 2 + (CGFloat(i) - 3) * 0.5
+            let len: CGFloat = 34
+            let tip = CGPoint(x: top.x + cos(a) * len, y: top.y + sin(a) * len * 0.6 + 14)
+            var frond = Path()
+            frond.move(to: top)
+            frond.addQuadCurve(to: tip, control: CGPoint(x: top.x + cos(a) * len * 0.6, y: top.y + sin(a) * len * 0.6 - 6))
+            ctx.stroke(frond, with: .color(dark), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+        }
+    }
+}
+
+/// Tone-on-tone rosettes for printed board stock.
+private struct RosettePattern: Shape {
+    let spacing: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        var y = rect.minY
+        var row = 0
+        while y < rect.maxY + spacing {
+            var x = rect.minX + (row % 2 == 0 ? 0 : spacing / 2)
+            while x < rect.maxX + spacing {
+                let r = spacing * 0.22
+                for k in 0..<8 {
+                    let a = CGFloat(k) / 8 * .pi * 2
+                    p.addEllipse(in: CGRect(x: x + cos(a) * r - r * 0.35, y: y + sin(a) * r - r * 0.35,
+                                            width: r * 0.7, height: r * 0.7))
+                }
+                p.addEllipse(in: CGRect(x: x - r * 0.25, y: y - r * 0.25, width: r * 0.5, height: r * 0.5))
+                x += spacing
+            }
+            y += spacing * 0.866
+            row += 1
+        }
+        return p
     }
 }
 

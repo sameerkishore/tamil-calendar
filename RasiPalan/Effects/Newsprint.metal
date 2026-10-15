@@ -243,3 +243,13 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     half3 c = color.rgb * half(1.0 + grain * 0.06 + blotch * 0.08) + half(sheen);
     return half4(c * color.a, color.a);
 }
+
+// Linen-finish card: a fine woven crosshatch of light and dark threads.
+[[ stitchable ]] half4 linen(float2 position, half4 color, float unit) {
+    float2 p = position / unit;
+    float warp = hash21(float2(floor(p.x * 1.4), 3.0)) - 0.5;
+    float weft = hash21(float2(7.0, floor(p.y * 1.4))) - 0.5;
+    float fleck = hash21(floor(p * 2.0)) - 0.5;
+    half k = half(1.0 + warp * 0.07 + weft * 0.07 + fleck * 0.04);
+    return half4(color.rgb * k, color.a);
+}
