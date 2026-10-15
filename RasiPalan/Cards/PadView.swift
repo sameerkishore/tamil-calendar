@@ -1,8 +1,9 @@
+import RasiCore
 import SwiftUI
 
 /// The whole desk object: red binding strip on top, the stack of sheets below.
 struct PadView: View {
-    let day: CalendarDay
+    let model: PadModel
     /// False when rendering offscreen (snapshots), where AppKit-backed views can't draw.
     var interactive = true
 
@@ -35,7 +36,7 @@ struct PadView: View {
                         .frame(width: Self.sheetSize.width, height: Self.sheetSize.height)
                         .offset(y: CGFloat(i) * Self.stackStep)
                 }
-                PlaceholderSheet(day: day)
+                ClassicSheet(context: model.context)
                     .frame(width: Self.sheetSize.width, height: Self.sheetSize.height)
             }
             .frame(height: Self.sheetSize.height + CGFloat(Self.stackDepth) * Self.stackStep, alignment: .top)
@@ -86,84 +87,6 @@ private struct Staple: View {
     }
 }
 
-/// Milestone-1 stand-in for the Classic card. Real panchangam data arrives in milestone 2,
-/// the block-based template system in milestone 3.
-struct PlaceholderSheet: View {
-    let day: CalendarDay
-
-    private static let tamilGregorianMonths = [
-        "ஜனவரி", "பிப்ரவரி", "மார்ச்", "ஏப்ரல்", "மே", "ஜூன்",
-        "ஜூலை", "ஆகஸ்ட்", "செப்டம்பர்", "அக்டோபர்", "நவம்பர்", "டிசம்பர்",
-    ]
-    private static let tamilWeekdays = ["ஞாயிறு", "திங்கள்", "செவ்வாய்", "புதன்", "வியாழன்", "வெள்ளி", "சனி"]
-    private static let englishWeekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-
-    private func tamil(_ size: CGFloat, bold: Bool = false) -> Font {
-        .custom("Tamil Sangam MN", size: size).weight(bold ? .bold : .regular)
-    }
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            Rectangle().fill(Ink.paper)
-
-            VStack(spacing: 0) {
-                HStack(alignment: .top, spacing: 0) {
-                    VStack(spacing: 0) {
-                        Text("\(Self.tamilGregorianMonths[day.month - 1]) \(String(day.year))")
-                            .font(tamil(13))
-                        Text("\(day.day)")
-                            .font(.system(size: 112, weight: .black, design: .serif).width(.condensed))
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                            .padding(.top, -6)
-                        Text(Self.englishWeekdays[day.weekday - 1])
-                            .font(.system(size: 28, weight: .heavy, design: .serif))
-                            .padding(.top, -14)
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    Rectangle().fill(Ink.black).frame(width: 1).padding(.vertical, 6)
-
-                    VStack(spacing: 2) {
-                        Text("—").font(tamil(13))
-                        Text("—").font(tamil(15, bold: true))
-                        Text("—")
-                            .font(.system(size: 56, weight: .bold, design: .serif))
-                            .foregroundStyle(Ink.faded)
-                            .padding(.vertical, 6)
-                        Text(Self.tamilWeekdays[day.weekday - 1]).font(tamil(22, bold: true))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.top, 12)
-                .frame(height: 200)
-
-                Rectangle().fill(Ink.black).frame(height: 1).padding(.horizontal, 10)
-
-                VStack(spacing: 6) {
-                    Text("திதி —     நட்சத்திரம் —")
-                    Text("ராகு —   குளிகை —   எமகண்டம் —")
-                    Text("Panchangam details arrive in milestone 2")
-                        .font(.system(size: 10, design: .serif).italic())
-                        .foregroundStyle(Ink.faded)
-                }
-                .font(tamil(12))
-                .padding(.top, 14)
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Text("நல்ல நேரம்:").font(tamil(12, bold: true))
-                    Text("—").font(tamil(12))
-                }
-                .foregroundStyle(Ink.red)
-                .padding(.bottom, 14)
-            }
-            .foregroundStyle(Ink.black)
-        }
-    }
-}
-
 #Preview {
-    PadView(day: .today())
+    PadView(model: PadModel(context: DayContext(day: .today(), location: .chennai)))
 }

@@ -1,17 +1,23 @@
 import AppKit
+import RasiCore
 
 /// The menu-bar icon and its menu. The app has no Dock icon, so this is its only chrome.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
-    private let store: StateStore
+    private let app: AppController
     private let pad: PadWindowController
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
     private let dateItem = NSMenuItem()
+    private let tamilDateItem = NSMenuItem()
     private let keepOnTopItem = NSMenuItem()
+    private let locationItem = NSMenuItem()
+    private let automaticLocationItem = NSMenuItem()
+    private let chooseCityItem = NSMenuItem()
+    private var styleItems: [PanchangamStyle: NSMenuItem] = [:]
 
-    init(store: StateStore, pad: PadWindowController) {
-        self.store = store
+    init(app: AppController, pad: PadWindowController) {
+        self.app = app
         self.pad = pad
         super.init()
 
@@ -24,15 +30,46 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.delegate = self
 
         dateItem.isEnabled = false
+        tamilDateItem.isEnabled = false
         menu.addItem(dateItem)
+        menu.addItem(tamilDateItem)
         menu.addItem(.separator())
 
         menu.addItem(item("Show Pad", #selector(showPad)))
-        keepOnTopItem.title = "Keep Pad Above Windows"
-        keepOnTopItem.action = #selector(toggleKeepOnTop)
-        keepOnTopItem.target = self
-        menu.addItem(keepOnTopItem)
+        menu.addItem(item(keepOnTopItem, "Keep Pad Above Windows", #selector(toggleKeepOnTop)))
         menu.addItem(item("Reset Pad Position", #selector(resetPosition)))
+        menu.addItem(.separator())
+
+        locationItem.isEnabled = false
+        menu.addItem(locationItem)
+        menu.addItem(item(automaticLocationItem, "Use My Location", #selector(useMyLocation)))
+        menu.addItem(item(chooseCityItem, "Choose City…", #selector(chooseCity)))
+        menu.addItem(.separator())
+
+        let styleMenu = NSMenu()
+        for style in PanchangamStyle.allCases {
+            let styleItem = NSMenuItem()
+            styleItem.representedObject = style.rawValue
+            styleItem.attributedTitle = Self.styleTitle(style)
+            styleItem.action = #selector(chooseStyle(_:))
+            styleItem.target = self
+            styleItems[style] = styleItem
+            styleMenu.addItem(styleItem)
+        }
+        let styleRoot = NSMenuItem(title: "Panchangam Style", action: nil, keyEquivalent: "")
+        styleRoot.submenu = styleMenu
+        menu.addItem(styleRoot)
+
+        #if DEBUG
+        let debugMenu = NSMenu()
+        debugMenu.addItem(item("Previous Day", #selector(previousDay), key: "["))
+        debugMenu.addItem(item("Next Day (until tearing works)", #selector(nextDay), key: "]"))
+        debugMenu.addItem(item("Back to Today", #selector(backToToday)))
+        let debugRoot = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+        debugRoot.submenu = debugMenu
+        menu.addItem(debugRoot)
+        #endif
+
         menu.addItem(.separator())
         menu.addItem(item("About Rasi Palan", #selector(showAbout)))
         menu.addItem(item("Quit Rasi Palan", #selector(quit), key: "q"))
@@ -40,26 +77,75 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
+    private static func styleTitle(_ style: PanchangamStyle) -> NSAttributedString {
+        let (title, detail) = switch style {
+        case .traditional: ("Traditional (Vakyam)", "Matches printed Tamil Nadu calendars")
+        case .precise: ("Precise (Thirukanitham)", "True sky and timings for your location")
+        }
+        let s = NSMutableAttributedString(string: title + "\n",
+                                          attributes: [.font: NSFont.menuFont(ofSize: 0)])
+        s.append(NSAttributedString(string: detail, attributes: [
+            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
+            .foregroundColor: NSColor.secondaryLabelColor,
+        ]))
+        return s
+    }
+
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item(NSMenuItem(), title, action, key: key)
+    }
+
+    private func item(_ item: NSMenuItem, _ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
+        item.title = title
+        item.action = action
+        item.keyEquivalent = key
         item.target = self
         return item
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        dateItem.title = "Pad shows: " + store.state.padDay.longDescription
-        keepOnTopItem.state = store.state.keepOnTop ? .on : .off
+        let ctx = app.model.context
+        dateItem.title = "Pad shows: " + ctx.day.longDescription
+        tamilDateItem.title = "\(ctx.tamil.month.ta) \(ctx.tamil.day) · \(ctx.tamil.yearName.ta) "
+            + "(\(ctx.tamil.month.en) \(ctx.tamil.day), \(ctx.tamil.yearName.en))"
+        keepOnTopItem.state = app.state.keepOnTop ? .on : .off
+
+        let source = app.state.locationSource
+        let suffix = switch source {
+        case .automatic: "from your Mac's location"
+        case .manual: "chosen by you"
+        case .timeZone: "from your time zone"
+        }
+        locationItem.title = "Location: \(ctx.location.name) (\(suffix))"
+        automaticLocationItem.state = source == .manual ? .off : .on
+        chooseCityItem.state = source == .manual ? .on : .off
+
+        for (style, styleItem) in styleItems {
+            styleItem.state = app.state.style == style ? .on : .off
+        }
     }
 
     @objc private func showPad() { pad.show() }
 
     @objc private func toggleKeepOnTop() {
-        store.state.keepOnTop.toggle()
-        store.save()
+        app.store.state.keepOnTop.toggle()
+        app.store.save()
         pad.applyLevel()
     }
 
     @objc private func resetPosition() { pad.resetPosition() }
+    @objc private func useMyLocation() { app.useAutomaticLocation() }
+    @objc private func chooseCity() { app.chooseCity() }
+
+    @objc private func chooseStyle(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let style = PanchangamStyle(rawValue: raw) {
+            app.setStyle(style)
+        }
+    }
+
+    @objc private func previousDay() { app.shiftPadDay(by: -1) }
+    @objc private func nextDay() { app.shiftPadDay(by: 1) }
+    @objc private func backToToday() { app.resetPadDayToToday() }
 
     @objc private func showAbout() {
         NSApp.activate()

@@ -79,9 +79,14 @@ mark) or any real person's portrait. That photo slot becomes a small printed‑s
 | Rasi Palan *(optional block)* | 12 rasis with a one‑line daily prediction each (off on Classic, on in Detail) |
 | Extras *(optional blocks)* | Sunrise/sunset, thought for the day, later weather, to‑dos, events |
 
-**Rahu Kalam modes** (setting): printed calendars use the **traditional fixed times**
-(e.g. Thursday Rahu 1.30–3), and that's the default for the Classic look. A **"precise for my
-location"** mode instead calculates the times from your actual sunrise and sunset.
+**Panchangam style** (setting; implemented in M2):
+- **Traditional (Vakyam)**, the default, matches printed Tamil Nadu calendars. Tamil months use the
+  Surya Siddhanta Sun reckoned for Tamil Nadu (with a −2.3 h calibration fitted to 36 published
+  month starts for 2025–27: 36/36 match). Rahu Kalam uses the fixed printed times (Thursday 1.30–3).
+- **Precise (Thirukanitham / drik)** uses the true sky for the user's location. Months come from the
+  modern sidereal Sun (Lahiri) and local sunset, and timings are eighths of the actual sunrise–sunset day.
+- The two differ by a day at some month starts. For example, Purattasi 2026 starts on 18 Sept
+  (Traditional) or 17 Sept (Precise).
 
 **Data strategy (phased so we're not blocked on astronomy):**
 - **Phase A** — compute what's purely arithmetic and exact: weekday, Rahu/Yama/Kuligai
@@ -309,7 +314,7 @@ Each milestone ends with something you can run and play with. Tell me what feels
 | Reference | User's home calendar (`docs/reference/home-calendar.jpg`); Classic template follows its anatomy, without copying brand or portraits |
 | Backing board | Optional; original board designs + "use your own image" |
 | Scaling | 50–250%, ⌘‑scroll / pinch / resize handle / menu; vector‑crisp |
-| Rahu Kalam | Traditional fixed times by default; precise sunrise‑based as option |
+| Panchangam style | Traditional (Vakyam, matches printed calendars) by default; Precise (Thirukanitham, true sky for your location) as option |
 
 ---
 

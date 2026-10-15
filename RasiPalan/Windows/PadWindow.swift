@@ -1,4 +1,5 @@
 import AppKit
+import RasiCore
 import SwiftUI
 
 /// Borderless, transparent window that lives on the desktop like a wall calendar.
@@ -28,12 +29,12 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     /// Sits just above the desktop icons and below every normal app window.
     private static let desktopLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
 
-    init(store: StateStore) {
+    init(store: StateStore, model: PadModel) {
         self.store = store
         window = PadWindow(size: PadView.windowSize)
         super.init()
 
-        window.contentView = NSHostingView(rootView: PadView(day: store.state.padDay))
+        window.contentView = NSHostingView(rootView: PadView(model: model))
         window.delegate = self
         applyLevel()
 

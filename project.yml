@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+packages:
+  RasiCore:
+    path: Packages/RasiCore
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -15,6 +18,9 @@ targets:
     platform: macOS
     sources:
       - path: RasiPalan
+    dependencies:
+      - package: RasiCore
+      - sdk: CoreLocation.framework
     info:
       path: RasiPalan/Info.plist
       properties:
@@ -24,6 +30,8 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.lifestyle
         NSPrincipalClass: NSApplication
+        NSLocationUsageDescription: Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.
+        NSLocationWhenInUseUsageDescription: Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.rasipalan.RasiPalan

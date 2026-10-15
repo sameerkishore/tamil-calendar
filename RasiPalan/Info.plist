@@ -24,6 +24,10 @@
 	<string>public.app-category.lifestyle</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSLocationUsageDescription</key>
+	<string>Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

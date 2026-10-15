@@ -1,4 +1,15 @@
 import Foundation
+import RasiCore
+
+/// Where the saved location came from.
+enum LocationSource: String, Codable {
+    /// Core Location, refreshed at launch.
+    case automatic
+    /// Picked by the user with "Choose City…".
+    case manual
+    /// The time zone's main city, used until a real location is known.
+    case timeZone
+}
 
 /// Everything the app remembers between launches.
 struct AppState: Codable {
@@ -8,15 +19,23 @@ struct AppState: Codable {
     var padOrigin: CGPoint?
     /// Raise the pad above normal windows instead of sitting on the desktop.
     var keepOnTop: Bool
+    var location: GeoLocation?
+    var locationSource: LocationSource
+    var style: PanchangamStyle
 
     static func fresh() -> AppState {
-        AppState(padDay: .today(), padOrigin: nil, keepOnTop: false)
+        AppState(padDay: .today(), padOrigin: nil, keepOnTop: false,
+                 location: nil, locationSource: .automatic, style: .traditional)
     }
 
-    init(padDay: CalendarDay, padOrigin: CGPoint?, keepOnTop: Bool) {
+    init(padDay: CalendarDay, padOrigin: CGPoint?, keepOnTop: Bool,
+         location: GeoLocation?, locationSource: LocationSource, style: PanchangamStyle) {
         self.padDay = padDay
         self.padOrigin = padOrigin
         self.keepOnTop = keepOnTop
+        self.location = location
+        self.locationSource = locationSource
+        self.style = style
     }
 
     // Tolerant decoding: keys added in later versions fall back to defaults.
@@ -26,6 +45,9 @@ struct AppState: Codable {
         padDay = try c.decodeIfPresent(CalendarDay.self, forKey: .padDay) ?? defaults.padDay
         padOrigin = try c.decodeIfPresent(CGPoint.self, forKey: .padOrigin)
         keepOnTop = try c.decodeIfPresent(Bool.self, forKey: .keepOnTop) ?? defaults.keepOnTop
+        location = try c.decodeIfPresent(GeoLocation.self, forKey: .location)
+        locationSource = (try? c.decodeIfPresent(LocationSource.self, forKey: .locationSource)) ?? defaults.locationSource
+        style = (try? c.decodeIfPresent(PanchangamStyle.self, forKey: .style)) ?? defaults.style
     }
 }
 
