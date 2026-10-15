@@ -10,7 +10,7 @@ final class SettingsWindowController {
     init(app: AppController) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 480, height: 600),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        window.title = "Rasi Palan Settings"
+        window.title = "Tamil Calendar Settings"
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: SettingsView(app: app, model: app.model))
     }
@@ -114,7 +114,7 @@ private struct SettingsView: View {
             }
 
             Section {
-                LabeledContent("Rasi Palan",
+                LabeledContent("Tamil Calendar",
                                value: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
                 Text("Paper sounds, artwork and almanac all made in code. Thirukkural couplets by Thiruvalluvar.")
                     .font(.caption).foregroundStyle(.secondary)

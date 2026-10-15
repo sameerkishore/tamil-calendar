@@ -20,7 +20,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         super.init()
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Rasi Palan")
+            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Tamil Calendar")
             button.image?.isTemplate = true
         }
 
@@ -47,7 +47,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         #endif
 
         menu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
-        menu.addItem(item(NSMenuItem(), "Quit Rasi Palan", #selector(quit), key: "q"))
+        menu.addItem(item(NSMenuItem(), "Quit Tamil Calendar", #selector(quit), key: "q"))
         statusItem.menu = menu
 
         installMainMenu()
@@ -69,8 +69,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let appMenu = NSMenu()
         appMenu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Hide Rasi Palan", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
-        appMenu.addItem(item(NSMenuItem(), "Quit Rasi Palan", #selector(quit), key: "q"))
+        appMenu.addItem(withTitle: "Hide Tamil Calendar", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(item(NSMenuItem(), "Quit Tamil Calendar", #selector(quit), key: "q"))
         let appRoot = NSMenuItem()
         appRoot.submenu = appMenu
         main.addItem(appRoot)

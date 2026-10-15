@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Rasi Palan</string>
+	<string>Tamil Calendar</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,13 +24,21 @@
 	<string>public.app-category.lifestyle</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Paper sounds, artwork and almanac all made in code. Thirukkural couplets by Thiruvalluvar.</string>
 	<key>NSLocationUsageDescription</key>
-	<string>Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
+	<string>Tamil Calendar uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Rasi Palan uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
+	<string>Tamil Calendar uses your approximate location to calculate sunrise, sunset and Rahu Kalam for your city. It is not stored anywhere except on this Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Tamil Calendar prints the reminders due on each sheet's day. It only reads them.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Tamil Calendar prints the reminders due on each sheet's day. It only reads them.</string>
 </dict>
 </plist>

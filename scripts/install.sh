@@ -3,11 +3,12 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 CONFIG=Release ./scripts/build.sh
+pkill -x "Tamil Calendar" 2>/dev/null || true
 pkill -x "Rasi Palan" 2>/dev/null || true
 pkill -x RasiPalan 2>/dev/null || true
 sleep 0.5
 mkdir -p ~/Applications
-rm -rf ~/Applications/"Rasi Palan.app"
-cp -R "build/Build/Products/Release/Rasi Palan.app" ~/Applications/
-echo "Installed: ~/Applications/Rasi Palan.app"
-open ~/Applications/"Rasi Palan.app"
+rm -rf ~/Applications/"Tamil Calendar.app" ~/Applications/"Rasi Palan.app"
+cp -R "build/Build/Products/Release/Tamil Calendar.app" ~/Applications/
+echo "Installed: ~/Applications/Tamil Calendar.app"
+open ~/Applications/"Tamil Calendar.app"
