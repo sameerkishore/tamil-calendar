@@ -1,0 +1,33 @@
+name: RasiPalan
+options:
+  bundleIdPrefix: app.rasipalan
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ARCHS: arm64
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+targets:
+  RasiPalan:
+    type: application
+    platform: macOS
+    sources:
+      - path: RasiPalan
+    info:
+      path: RasiPalan/Info.plist
+      properties:
+        CFBundleDisplayName: Rasi Palan
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.lifestyle
+        NSPrincipalClass: NSApplication
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rasipalan.RasiPalan
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
