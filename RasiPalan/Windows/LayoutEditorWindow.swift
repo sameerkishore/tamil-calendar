@@ -42,6 +42,8 @@ final class LayoutDraft {
     }
 
     var header: Header
+    /// What prints beside the English date in the two-column header (the Tamil date by default).
+    var headerRight = Item(type: TamilDateBlock.type)
     var paper: PaperStock
     var items: [Item]
     var footer: Bool
@@ -60,8 +62,9 @@ final class LayoutDraft {
         header = .none
         if let first = rows.first {
             let types = first.blocks.map(\.type)
-            if types == [GregorianDateBlock.type, TamilDateBlock.type] {
+            if types.count == 2 && types[0] == GregorianDateBlock.type {
                 header = .twoColumn
+                headerRight = Item(type: first.blocks[1].type, params: first.blocks[1].params)
                 rows = rows.dropFirst()
             } else if types == [BigDateBlock.type] {
                 header = .bigDate
@@ -82,7 +85,10 @@ final class LayoutDraft {
         var rows: [CardLayout.Row] = []
         switch header {
         case .twoColumn:
-            rows.append(.init(blocks: [.init(GregorianDateBlock.type), .init(TamilDateBlock.type)],
+            var right = CardLayout.BlockSpec(headerRight.type, headerRight.params)
+            // The Tamil date sets its own top margin; other blocks need one to clear the perforation.
+            if right.type != TamilDateBlock.type { right.params["top"] = "16" }
+            rows.append(.init(blocks: [.init(GregorianDateBlock.type), right],
                               separators: true, height: 186, ruleBelow: true))
         case .bigDate:
             rows.append(.init(blocks: [.init(BigDateBlock.type, ["size": "140"])], top: 4))
@@ -117,6 +123,16 @@ final class LayoutDraft {
     (NoteBlock.type, "Note", "Your own line of text"),
     (TamilDateLineBlock.type, "Tamil date (one line)", "புரட்டாசி 28 · பராபவ"),
     (RuleBlock.type, "Line", "A printed rule to separate sections"),
+]
+
+/// Blocks that fit in the narrow box beside the English date.
+@MainActor private let headerRightBlocks: [(type: String, name: String)] = [
+    (TamilDateBlock.type, "Tamil date"),
+    (RemindersBlock.type, "Reminders due"),
+    (EventsBlock.type, "Calendar events"),
+    (HoroscopeBlock.type, "My horoscope"),
+    (WeatherBlock.type, "Weather"),
+    (NoteBlock.type, "Note"),
 ]
 
 @MainActor private func blockName(_ type: String) -> String {
@@ -209,6 +225,14 @@ private struct LayoutEditorView: View {
                         Text("None").tag(LayoutDraft.Header.none)
                     }
                     .pickerStyle(.segmented)
+                    if draft.header == .twoColumn {
+                        Picker("Beside the date", selection: Binding(
+                            get: { draft.headerRight.type },
+                            set: { draft.headerRight = .init(type: $0) })) {
+                            ForEach(headerRightBlocks, id: \.type) { Text($0.name).tag($0.type) }
+                        }
+                        BlockOptions(item: $draft.headerRight, myRasi: $myRasi, signs: $signs)
+                    }
                     Picker("Paper", selection: $draft.paper) {
                         Text("Newsprint").tag(PaperStock.newsprint)
                         Text("Dark card").tag(PaperStock.dark)
@@ -287,15 +311,21 @@ private struct BlockRow: View {
                     .help("Remove block")
             }
             if item.enabled {
-                options
+                BlockOptions(item: $item, myRasi: $myRasi, signs: $signs)
                     .padding(.leading, 44)
             }
         }
         .padding(.vertical, 2)
     }
+}
 
-    @ViewBuilder
-    private var options: some View {
+/// A block's settings (note text, how many items…), if it has any.
+private struct BlockOptions: View {
+    @Binding var item: LayoutDraft.Item
+    @Binding var myRasi: Int?
+    @Binding var signs: SignNames
+
+    var body: some View {
         switch item.type {
         case NoteBlock.type:
             TextField("Text to print", text: param("text", ""))
@@ -309,9 +339,10 @@ private struct BlockRow: View {
         case NallaNeramBlock.type:
             Toggle("Show chandrashtamam", isOn: flag("chandrashtamam", on: "show", defaultOn: true))
         case RemindersBlock.type, EventsBlock.type:
-            Stepper("Up to \(Int(item.params["max"] ?? "4") ?? 4) items", value: Binding(
-                get: { Int(item.params["max"] ?? "4") ?? 4 },
-                set: { item.params["max"] = String($0) }), in: 1...8)
+            let max = item.params["max"].flatMap(Int.init) ?? ListSize.defaultMax
+            Stepper("Up to \(max) items", value: Binding(
+                get: { max },
+                set: { item.params["max"] = String($0) }), in: 1...12)
         case HoroscopeBlock.type:
             Picker("Sign names", selection: $signs) {
                 Text("Tamil rasi").tag(SignNames.tamil)

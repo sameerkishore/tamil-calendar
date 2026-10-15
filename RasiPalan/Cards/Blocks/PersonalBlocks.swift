@@ -55,7 +55,7 @@ struct HoroscopeBlock: CardBlock {
     }
 }
 
-/// Reminders due on the sheet's day, printed as a plain list. Params: `max` (default 4).
+/// Reminders due on the sheet's day, printed as a plain list. Params: `max` (default 10).
 struct RemindersBlock: CardBlock {
     static let type = "reminders"
     static let displayName = "Reminders due"
@@ -65,15 +65,16 @@ struct RemindersBlock: CardBlock {
     @Environment(\.sheetExtras) private var extras
 
     var body: some View {
-        let limit = context.params["max"].flatMap(Int.init) ?? 4
-        VStack(spacing: theme.u(1.5)) {
+        let limit = context.params["max"].flatMap(Int.init) ?? ListSize.defaultMax
+        let size = ListSize(count: min(extras?.reminders?.count ?? 0, limit))
+        VStack(spacing: theme.u(size.spacing)) {
             BlockHeading(text: LocalizedText(ta: "இன்று செய்ய வேண்டியவை", en: "To do"))
             if let items = extras?.reminders {
                 if items.isEmpty {
                     FaintLine(text: LocalizedText(ta: "ஒன்றும் இல்லை", en: "Nothing due"))
                 }
                 ForEach(Array(items.prefix(limit).enumerated()), id: \.offset) { _, title in
-                    line("• " + title)
+                    line("• " + title, size: size.text)
                 }
                 if items.count > limit {
                     FaintLine(text: LocalizedText(ta: "மேலும் \(items.count - limit)", en: "and \(items.count - limit) more"))
@@ -82,12 +83,12 @@ struct RemindersBlock: CardBlock {
                 FaintLine(text: LocalizedText(ta: "நினைவூட்டல்கள் அனுமதி தேவை", en: "Allow Reminders in Settings"))
             }
         }
-        .padding(.horizontal, theme.u(14))
+        .padding(.horizontal, theme.u(12))
     }
 
-    private func line(_ text: String) -> some View {
+    private func line(_ text: String, size: CGFloat) -> some View {
         Text(text)
-            .font(PersonalText.font(for: text, theme: theme, size: 10.5))
+            .font(PersonalText.font(for: text, theme: theme, size: size))
             .lineLimit(1)
             .truncationMode(.tail)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,7 +96,7 @@ struct RemindersBlock: CardBlock {
 }
 
 /// Calendar events on the sheet's day, from the calendars chosen in Settings.
-/// Params: `max` (default 4).
+/// Params: `max` (default 10).
 struct EventsBlock: CardBlock {
     static let type = "events"
     static let displayName = "Calendar events"
@@ -105,8 +106,9 @@ struct EventsBlock: CardBlock {
     @Environment(\.sheetExtras) private var extras
 
     var body: some View {
-        let limit = context.params["max"].flatMap(Int.init) ?? 4
-        VStack(spacing: theme.u(1.5)) {
+        let limit = context.params["max"].flatMap(Int.init) ?? ListSize.defaultMax
+        let size = ListSize(count: min(extras?.events?.count ?? 0, limit))
+        VStack(spacing: theme.u(size.spacing)) {
             BlockHeading(text: LocalizedText(ta: "இன்றைய நிகழ்வுகள்", en: "Events"))
             if let items = extras?.events {
                 if items.isEmpty {
@@ -116,14 +118,14 @@ struct EventsBlock: CardBlock {
                     HStack(alignment: .firstTextBaseline, spacing: theme.u(6)) {
                         Group {
                             if let time = event.time {
-                                Text(time).font(theme.latin(9.5, bold: true))
+                                Text(time).font(theme.latin(size.text - 1, bold: true))
                             } else {
-                                theme.label(LocalizedText(ta: "முழு நாள்", en: "All day"), 9, bold: true)
+                                theme.label(LocalizedText(ta: "முழு நாள்", en: "All day"), size.text - 1.5, bold: true)
                             }
                         }
-                        .frame(width: theme.u(44), alignment: .trailing)
+                        .frame(width: theme.u(40), alignment: .trailing)
                         Text(event.title)
-                            .font(PersonalText.font(for: event.title, theme: theme, size: 10.5))
+                            .font(PersonalText.font(for: event.title, theme: theme, size: size.text))
                             .lineLimit(1)
                             .truncationMode(.tail)
                         Spacer(minLength: 0)
@@ -136,7 +138,7 @@ struct EventsBlock: CardBlock {
                 FaintLine(text: LocalizedText(ta: "நாட்காட்டி அனுமதி தேவை", en: "Allow Calendars in Settings"))
             }
         }
-        .padding(.horizontal, theme.u(14))
+        .padding(.horizontal, theme.u(12))
     }
 }
 
@@ -168,6 +170,21 @@ struct WeatherBlock: CardBlock {
             }
         }
         .padding(.horizontal, theme.u(12))
+    }
+}
+
+/// Lists print smaller as they grow, so ten items still fit on the sheet.
+struct ListSize {
+    static let defaultMax = 10
+    let text: CGFloat
+    let spacing: CGFloat
+
+    init(count: Int) {
+        switch count {
+        case ...4: (text, spacing) = (10.5, 1.5)
+        case 5...6: (text, spacing) = (9.5, 1)
+        default: (text, spacing) = (8.5, 0.5)
+        }
     }
 }
 

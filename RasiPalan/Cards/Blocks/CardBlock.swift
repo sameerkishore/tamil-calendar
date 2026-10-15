@@ -50,6 +50,17 @@ enum BlockRegistry {
             // Unknown blocks (e.g. from a newer layout file) leave a gap rather than failing.
             return AnyView(EmptyView())
         }
-        return AnyView(block.init(BlockContext(day: context, params: spec.params)))
+        let view = AnyView(block.init(BlockContext(day: context, params: spec.params)))
+        // Any block can take a `top` margin, in sheet points.
+        if let top = spec.params["top"].flatMap(Double.init) { return AnyView(TopMargin(points: top, content: view)) }
+        return view
     }
+}
+
+private struct TopMargin: View {
+    let points: Double
+    let content: AnyView
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View { content.padding(.top, theme.u(points)) }
 }

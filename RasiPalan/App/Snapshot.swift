@@ -105,6 +105,29 @@ enum Snapshot {
             }.padding(20))
         }
 
+        // -snapshotLists 1: nine reminders under the dates, and reminders beside the English date.
+        if defaults.double(forKey: "snapshotLists") > 0 {
+            let sample = DayExtras(
+                reminders: ["Meet Paul about knee rehab using body scan", "Submit G x R paper to Scientific Reports",
+                            "Get appointment for flu vaccine", "Follow up with curriculum email", "Book Appa’s ticket",
+                            "Fill interview - Camille", "Call Andrew from reform", "Look at Jay’s gift",
+                            "Recheck the excel sheet"],
+                events: [PrintedEvent(time: "9.30", title: "Team standup")])
+            let below = LayoutDraft(from: .classic)
+            below.header = .twoColumn
+            below.items = [.init(type: RemindersBlock.type), .init(type: EventsBlock.type)]
+            below.footer = true
+            let beside = LayoutDraft(from: .classic)
+            beside.header = .twoColumn
+            beside.headerRight = .init(type: RemindersBlock.type)
+            beside.items = [.init(type: PanchangamBlock.type), .init(type: TimingsBlock.type), .init(type: EventsBlock.type)]
+            beside.footer = true
+            content = AnyView(HStack(spacing: 20) {
+                SheetFace(context: context, layout: below.layout, extras: sample)
+                SheetFace(context: context, layout: beside.layout, extras: sample)
+            }.environment(\.cardTheme, theme).padding(20))
+        }
+
         // -snapshotBlank 1: everything unchecked, next to a sheet with only a note and a Western horoscope.
         if defaults.double(forKey: "snapshotBlank") > 0 {
             let blank = LayoutDraft(from: .classic)
