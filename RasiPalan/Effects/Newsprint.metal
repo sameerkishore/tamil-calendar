@@ -119,3 +119,89 @@ static half blackPlate(half4 s) {
     float curl = 1.0 + 0.25 * (abs(x - 0.5) * 2.0) * y;
     return position - pull * w * curl;
 }
+
+static float2 hash22(float2 p) {
+    float n = hash21(p);
+    return float2(n, hash21(p + n + 19.19));
+}
+
+// Voronoi cells: returns the distance to the nearest cell border (0 on a fold line)
+// and the id of the cell the point falls in.
+static float voronoi(float2 g, float seed, thread float2 &cellId) {
+    float2 cell = floor(g), f = fract(g);
+    float best = 8.0, second = 8.0;
+    cellId = cell;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            float2 o = float2(x, y);
+            float dist = length(o + hash22(cell + o + seed) - f);
+            if (dist < best) { second = best; best = dist; cellId = cell + o; }
+            else if (dist < second) { second = dist; }
+        }
+    }
+    return second - best;
+}
+
+// Crumpling a printed sheet into a ball. Applied as a layerEffect to the full sheet face.
+// t: 0 = flat sheet … 1 = finished ball. The outline morphs from the rectangle into a lumpy
+// ball; inside, the paper breaks into facets at two scales (big folds and small creases), each
+// showing a squeezed, shifted scrap of the sheet and tilted its own way to catch the light.
+[[ stitchable ]] half4 crumple(float2 position, SwiftUI::Layer layer, float2 size, float t,
+                               float unit, float seed) {
+    float e = t * t * (3.0 - 2.0 * t);
+    float2 c = size * 0.5;
+    float2 q = position - c;
+    float2 h = size * 0.5;
+    float ballR = min(size.x, size.y) * 0.19;
+
+    // Outline: rectangle → lumpy ball, with a crinkled edge mid-way.
+    float ang = atan2(q.y, q.x);
+    float2 dir = float2(cos(ang), sin(ang));
+    float lumps = 0.22 * (valueNoise(dir * 1.6 + seed) - 0.5)
+                + 0.12 * (valueNoise(dir * 4.1 + seed * 2.0) - 0.5)
+                + 0.05 * (valueNoise(dir * 11.0 + seed * 3.0) - 0.5);
+    float r = ballR * (1.0 + lumps);
+    float2 dq = abs(q) - h;
+    float sdRect = length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0);
+    float sdBall = length(q) - r;
+    float d = mix(sdRect, sdBall, e);
+    d += (valueNoise(q / unit * 0.12 + seed) - 0.5) * 9.0 * unit * sin(3.14159 * e);
+    float alpha = 1.0 - smoothstep(-0.8 * unit, 0.8 * unit, d);
+    if (alpha <= 0.0) return half4(0.0h);
+
+    // Two scales of folding, both tightening as the paper is squeezed. A little warp keeps
+    // the cells from looking like tiles.
+    float2 warp = (float2(fbm(q / unit * 0.05 + seed), fbm(q / unit * 0.05 + seed + 7.0)) - 0.5) * 30.0 * unit;
+    float bigSize = mix(140.0, 24.0, e) * unit;
+    float smallSize = mix(60.0, 9.0, e) * unit;
+    float2 bigId, smallId;
+    float bigCrease = voronoi((q + warp) / bigSize, seed, bigId);
+    float smallCrease = voronoi((q - warp * 0.5) / smallSize, seed + 3.7, smallId);
+    float2 bigRnd = hash22(bigId + seed * 1.3) - 0.5;
+    float2 smallRnd = hash22(smallId + seed * 2.1) - 0.5;
+
+    // Where in the flat sheet this scrap came from: squeezed towards the centre, each big facet
+    // shifted by its own amount, so the ball shows jumbled bits of the day's print.
+    float squeeze = mix(1.0, length(h) / ballR * 0.85, e);
+    float2 src = c + q * squeeze + bigRnd * bigSize * 2.4 * e + smallRnd * smallSize * 0.6 * e;
+    src = clamp(src, float2(2.0), size - 2.0);
+    half4 col = layer.sample(src);
+    if (col.a < 0.5h) col = half4(0.93h, 0.92h, 0.88h, 1.0h); // paper behind torn bits
+
+    // Light: a rounded body, big facets tilted strongly, small creases adding texture.
+    float2 sp = q / max(r, 1.0);
+    float3 body = normalize(float3(sp * 1.1, sqrt(max(0.05, 1.0 - dot(sp, sp) * 0.85))));
+    float3 n = body + float3(bigRnd * 2.4, 0.0) + float3(smallRnd * 0.9, 0.0);
+    n = normalize(mix(float3(0, 0, 1), normalize(n), e));
+    float3 light = normalize(float3(-0.5, -0.65, 0.58));
+    float lambert = clamp(dot(n, light), 0.0, 1.0);
+    float shade = mix(1.0, 0.58 + 0.62 * lambert, e);
+    shade *= 1.0 - 0.45 * e * (1.0 - smoothstep(0.0, 0.05, bigCrease));    // sharp main folds
+    shade *= 1.0 - 0.22 * e * (1.0 - smoothstep(0.0, 0.07, smallCrease));  // finer creases
+    shade *= 1.0 - 0.35 * e * smoothstep(0.5, 1.0, length(sp));            // rim turns away
+
+    // Shadows in paper are warm, not grey.
+    half3 tint = mix(half3(0.86h, 0.80h, 0.70h), half3(1.0h), half(clamp(shade, 0.0, 1.0)));
+    col.rgb *= half(shade) * tint;
+    return col * half(alpha);
+}

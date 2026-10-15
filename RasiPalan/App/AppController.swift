@@ -47,6 +47,7 @@ final class AppController {
     private var cityPicker: CityPickerWindowController?
     private let tear = TearController()
     private var floatingSheets: FloatingSheetsController?
+    private var paperBalls: PaperBallsController?
     private var physicsSettings: PhysicsSettingsWindowController?
 
     /// Only move the saved location if the user has really travelled.
@@ -72,8 +73,15 @@ final class AppController {
         menuBar = MenuBarController(app: self, pad: pad)
         pad.show()
 
+        let balls = PaperBallsController(store: store, model: model)
+        balls.restore(level: pad.level)
+        paperBalls = balls
+
         let sheets = FloatingSheetsController(store: store, model: model)
-        sheets.onClick = { _ in SoundPlayer.shared.play("rustle", volume: 0.6) } // crumpling arrives in milestone 5
+        sheets.onCrumpled = { [weak self] sheet, _ in
+            guard let self, let pad = self.pad else { return }
+            paperBalls?.add(PaperBallRecord(sheet: sheet), level: pad.level)
+        }
         sheets.restore(level: pad.level)
         floatingSheets = sheets
 
@@ -187,7 +195,10 @@ final class AppController {
         store.state.keepOnTop = on
         store.save()
         pad?.applyLevel()
-        if let pad { floatingSheets?.setLevel(pad.level) }
+        if let pad {
+            floatingSheets?.setLevel(pad.level)
+            paperBalls?.setLevel(pad.level)
+        }
     }
 
     func showPhysicsSettings() {

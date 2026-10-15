@@ -29,6 +29,8 @@ struct AppState: Codable {
     var padScalesByDisplay: [String: CGFloat]
     /// Torn sheets lying around the desktop.
     var floatingSheets: [FloatingSheetRecord] = []
+    /// Crumpled sheets lying around the desktop.
+    var paperBalls: [PaperBallRecord] = []
     var soundEnabled = true
     var physics = TearPhysics()
 
@@ -66,6 +68,7 @@ struct AppState: Codable {
         padScale = try c.decodeIfPresent(CGFloat.self, forKey: .padScale) ?? defaults.padScale
         padScalesByDisplay = try c.decodeIfPresent([String: CGFloat].self, forKey: .padScalesByDisplay) ?? [:]
         floatingSheets = (try? c.decodeIfPresent([FloatingSheetRecord].self, forKey: .floatingSheets)) ?? []
+        paperBalls = (try? c.decodeIfPresent([PaperBallRecord].self, forKey: .paperBalls)) ?? []
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }

@@ -43,6 +43,17 @@ enum Snapshot {
             }.frame(width: 700, height: 700, alignment: .topLeading))
         }
 
+        // -snapshotCrumple 1: crumple stages side by side.
+        if defaults.double(forKey: "snapshotCrumple") > 0 {
+            content = AnyView(HStack(spacing: 0) {
+                ForEach([0.0, 0.3, 0.55, 0.8, 1.0], id: \.self) { t in
+                    CrumpledSheet(context: context, layout: model.layout, t: t)
+                        .shadow(color: .black.opacity(0.3), radius: 6, y: 4)
+                        .padding(10)
+                }
+            }.environment(\.cardTheme, theme))
+        }
+
         let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,
