@@ -51,7 +51,7 @@ final class HotKey {
         Self.action = action
         Self.installHandlerOnce()
         let id = EventHotKeyID(signature: OSType(0x5241_5350), id: 1) // 'RASP'
-        let status = RegisterEventHotKey(UInt32(kVK_ANSI_H), modifiers, id, GetApplicationEventTarget(), 0, &ref)
+        let status = RegisterEventHotKey(UInt32(kVK_ANSI_H), modifiers, id, GetEventDispatcherTarget(), 0, &ref)
         if status != noErr {
             NSLog("RasiPalan: couldn't register hot key \(shortcut.title) (\(status)); another app may be using it")
         }
@@ -66,10 +66,11 @@ final class HotKey {
         guard !handlerInstalled else { return }
         handlerInstalled = true
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
+        InstallEventHandler(GetEventDispatcherTarget(), { _, _, _ in
             // Carbon delivers hot keys on the main thread.
             MainActor.assumeIsolated { HotKey.action?() }
             return noErr
         }, 1, &spec, nil, nil)
     }
 }
+
