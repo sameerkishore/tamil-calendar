@@ -40,6 +40,8 @@ struct AppState: Codable {
     /// The user's own board picture, copied into Application Support.
     var boardImagePath: String?
     var boardCrop = PhotoCrop()
+    /// System-wide shortcut that brings the calendar in front / sends it back.
+    var frontShortcut: FrontShortcut = .controlH
     var soundEnabled = true
     var physics = TearPhysics()
 
@@ -84,6 +86,7 @@ struct AppState: Codable {
         board = (try? c.decodeIfPresent(BoardStyle.self, forKey: .board)) ?? BoardStyle.none
         boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
         boardCrop = (try? c.decodeIfPresent(PhotoCrop.self, forKey: .boardCrop)) ?? PhotoCrop()
+        frontShortcut = (try? c.decodeIfPresent(FrontShortcut.self, forKey: .frontShortcut)) ?? .controlH
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }

@@ -20,6 +20,8 @@ final class PadModel {
     var board: BoardStyle = .none
     var boardImage: NSImage?
     var boardCrop = PhotoCrop()
+    /// The pad (and torn sheets, balls, bin) float above all windows instead of the desktop.
+    var keepOnTop = false
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
         CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper)
@@ -58,6 +60,7 @@ final class AppController {
     private var gallery: TemplateGalleryWindowController?
     private var photoCrop: PhotoCropWindowController?
     private var settings: SettingsWindowController?
+    private let frontHotKey = HotKey()
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -77,10 +80,12 @@ final class AppController {
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
+        model.keepOnTop = store.state.keepOnTop
     }
 
     func start() {
         SoundPlayer.shared.isEnabled = state.soundEnabled
+        registerFrontShortcut()
         let pad = PadWindowController(store: store, model: model)
         self.pad = pad
         menuBar = MenuBarController(app: self, pad: pad)
@@ -309,8 +314,26 @@ final class AppController {
         commit()
     }
 
+    /// Brings the calendar in front of every window, or sends it back to the desktop.
+    func toggleInFront() {
+        setKeepOnTop(!state.keepOnTop)
+    }
+
+    func setFrontShortcut(_ shortcut: FrontShortcut) {
+        store.state.frontShortcut = shortcut
+        store.save()
+        registerFrontShortcut()
+    }
+
+    private func registerFrontShortcut() {
+        frontHotKey.register(state.frontShortcut) { [weak self] in self?.toggleInFront() }
+    }
+
+    func resetPadPosition() { pad?.resetPosition() }
+
     func setKeepOnTop(_ on: Bool) {
         store.state.keepOnTop = on
+        model.keepOnTop = on
         store.save()
         pad?.applyLevel()
         if let pad {

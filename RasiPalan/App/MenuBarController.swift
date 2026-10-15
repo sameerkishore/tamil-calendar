@@ -1,7 +1,8 @@
 import AppKit
 import RasiCore
 
-/// The menu-bar icon and its menu. The app has no Dock icon, so this is its only chrome.
+/// The menu-bar icon and its short menu; everything else lives in Settings. Also installs the
+/// app's hidden main menu, so standard shortcuts (⌘, ⌘Q ⌘W, copy/paste) work in its windows.
 @MainActor
 final class MenuBarController: NSObject, NSMenuDelegate {
     private let app: AppController
@@ -11,19 +12,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let dateItem = NSMenuItem()
     private let tamilDateItem = NSMenuItem()
     private let behindItem = NSMenuItem()
-    private let loginItem = NSMenuItem()
-    private let keepOnTopItem = NSMenuItem()
-    private let soundItem = NSMenuItem()
-    private let locationItem = NSMenuItem()
-    private let automaticLocationItem = NSMenuItem()
-    private let chooseCityItem = NSMenuItem()
-    private var styleItems: [PanchangamStyle: NSMenuItem] = [:]
-    private var languageItems: [CardLanguage: NSMenuItem] = [:]
-    private var sizeItems: [(CGFloat, NSMenuItem)] = []
-    private static let sizePresets: [(String, CGFloat)] = [
-        ("Tiny (50%)", 0.5), ("Small (75%)", 0.75), ("Normal (100%)", 1), ("Large (150%)", 1.5),
-        ("Extra Large (200%)", 2), ("Huge (250%)", 2.5),
-    ]
+    private let frontItem = NSMenuItem()
 
     init(app: AppController, pad: PadWindowController) {
         self.app = app
@@ -37,109 +26,31 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
-
-        dateItem.isEnabled = false
-        tamilDateItem.isEnabled = false
-        behindItem.isEnabled = false
-        menu.addItem(dateItem)
-        menu.addItem(tamilDateItem)
-        menu.addItem(behindItem)
-        menu.addItem(.separator())
-
-        menu.addItem(item("Show Pad", #selector(showPad)))
-        menu.addItem(item(keepOnTopItem, "Keep Pad Above Windows", #selector(toggleKeepOnTop)))
-        menu.addItem(item("Reset Pad Position", #selector(resetPosition)))
-        menu.addItem(item("Clear Desktop (torn sheets and balls)", #selector(clearDesktop)))
-        menu.addItem(.separator())
-        menu.addItem(item("Templates & Board…", #selector(showGallery)))
-
-        let sizeMenu = NSMenu()
-        sizeMenu.addItem(item("Bigger", #selector(bigger), key: "+"))
-        sizeMenu.addItem(item("Smaller", #selector(smaller), key: "-"))
-        sizeMenu.addItem(.separator())
-        for (title, scale) in Self.sizePresets {
-            let sizeItem = item(title, #selector(chooseSize(_:)))
-            sizeItem.representedObject = scale
-            sizeItems.append((scale, sizeItem))
-            sizeMenu.addItem(sizeItem)
+        for info in [dateItem, tamilDateItem, behindItem] {
+            info.isEnabled = false
+            menu.addItem(info)
         }
-        sizeMenu.addItem(.separator())
-        let tip = NSMenuItem(title: "Tip: ⌘-scroll or pinch over the pad", action: nil, keyEquivalent: "")
-        tip.isEnabled = false
-        sizeMenu.addItem(tip)
-        let sizeRoot = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
-        sizeRoot.submenu = sizeMenu
-        menu.addItem(sizeRoot)
         menu.addItem(.separator())
-
-        locationItem.isEnabled = false
-        menu.addItem(locationItem)
-        menu.addItem(item(automaticLocationItem, "Use My Location", #selector(useMyLocation)))
-        menu.addItem(item(chooseCityItem, "Choose City…", #selector(chooseCity)))
+        menu.addItem(item(frontItem, "Calendar in Front", #selector(toggleFront)))
+        menu.addItem(item(NSMenuItem(), "Templates & Board…", #selector(showGallery)))
+        menu.addItem(item(NSMenuItem(), "Clear Desktop", #selector(clearDesktop)))
         menu.addItem(.separator())
-
-        let styleMenu = NSMenu()
-        for style in PanchangamStyle.allCases {
-            let styleItem = NSMenuItem()
-            styleItem.representedObject = style.rawValue
-            styleItem.attributedTitle = Self.styleTitle(style)
-            styleItem.action = #selector(chooseStyle(_:))
-            styleItem.target = self
-            styleItems[style] = styleItem
-            styleMenu.addItem(styleItem)
-        }
-        let styleRoot = NSMenuItem(title: "Panchangam Style", action: nil, keyEquivalent: "")
-        styleRoot.submenu = styleMenu
-        menu.addItem(styleRoot)
-
-        let languageMenu = NSMenu()
-        for language in CardLanguage.allCases {
-            let languageItem = item(language.menuTitle, #selector(chooseLanguage(_:)))
-            languageItem.representedObject = language.rawValue
-            languageItems[language] = languageItem
-            languageMenu.addItem(languageItem)
-        }
-        let languageRoot = NSMenuItem(title: "Card Language", action: nil, keyEquivalent: "")
-        languageRoot.submenu = languageMenu
-        menu.addItem(languageRoot)
 
         #if DEBUG
         let debugMenu = NSMenu()
-        debugMenu.addItem(item("Previous Day", #selector(previousDay), key: "["))
-        debugMenu.addItem(item("Next Day", #selector(nextDay), key: "]"))
-        debugMenu.addItem(item("Back to Today", #selector(backToToday)))
+        debugMenu.addItem(item(NSMenuItem(), "Previous Day", #selector(previousDay), key: "["))
+        debugMenu.addItem(item(NSMenuItem(), "Next Day", #selector(nextDay), key: "]"))
+        debugMenu.addItem(item(NSMenuItem(), "Back to Today", #selector(backToToday)))
         let debugRoot = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
         debugRoot.submenu = debugMenu
         menu.addItem(debugRoot)
         #endif
 
-        menu.addItem(item(soundItem, "Sound Effects", #selector(toggleSound)))
-        menu.addItem(item(loginItem, "Open at Login", #selector(toggleLogin)))
-        menu.addItem(item("Advanced Physics Settings…", #selector(showPhysics)))
-        menu.addItem(.separator())
-        menu.addItem(item("Settings…", #selector(showSettings), key: ","))
-        menu.addItem(item("About Rasi Palan", #selector(showAbout)))
-        menu.addItem(item("Quit Rasi Palan", #selector(quit), key: "q"))
-
+        menu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
+        menu.addItem(item(NSMenuItem(), "Quit Rasi Palan", #selector(quit), key: "q"))
         statusItem.menu = menu
-    }
 
-    private static func styleTitle(_ style: PanchangamStyle) -> NSAttributedString {
-        let (title, detail) = switch style {
-        case .traditional: ("Traditional (Vakyam)", "Matches printed Tamil Nadu calendars")
-        case .precise: ("Precise (Thirukanitham)", "True sky and timings for your location")
-        }
-        let s = NSMutableAttributedString(string: title + "\n",
-                                          attributes: [.font: NSFont.menuFont(ofSize: 0)])
-        s.append(NSAttributedString(string: detail, attributes: [
-            .font: NSFont.menuFont(ofSize: NSFont.smallSystemFontSize),
-            .foregroundColor: NSColor.secondaryLabelColor,
-        ]))
-        return s
-    }
-
-    private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
-        item(NSMenuItem(), title, action, key: key)
+        installMainMenu()
     }
 
     private func item(_ item: NSMenuItem, _ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -150,86 +61,65 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         return item
     }
 
+    /// Menu-bar apps have no visible main menu, but its key equivalents still work while one of
+    /// the app's windows is focused.
+    private func installMainMenu() {
+        let main = NSMenu()
+
+        let appMenu = NSMenu()
+        appMenu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide Rasi Palan", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(item(NSMenuItem(), "Quit Rasi Palan", #selector(quit), key: "q"))
+        let appRoot = NSMenuItem()
+        appRoot.submenu = appMenu
+        main.addItem(appRoot)
+
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let editRoot = NSMenuItem()
+        editRoot.submenu = edit
+        main.addItem(editRoot)
+
+        let window = NSMenu(title: "Window")
+        window.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let windowRoot = NSMenuItem()
+        windowRoot.submenu = window
+        main.addItem(windowRoot)
+
+        NSApp.mainMenu = main
+    }
+
     func menuWillOpen(_ menu: NSMenu) {
         let ctx = app.model.context
-        dateItem.title = "Pad shows: " + ctx.day.longDescription
+        dateItem.title = ctx.day.longDescription
+        tamilDateItem.title = "\(ctx.tamil.month.ta) \(ctx.tamil.day) · \(ctx.tamil.yearName.ta)"
         let behind = ctx.day.days(to: .today())
         behindItem.isHidden = behind <= 0
         behindItem.title = behind == 1 ? "1 day behind today: time to tear!" : "\(behind) days behind today: time to tear!"
-        loginItem.state = app.opensAtLogin ? .on : .off
-        tamilDateItem.title = "\(ctx.tamil.month.ta) \(ctx.tamil.day) · \(ctx.tamil.yearName.ta) "
-            + "(\(ctx.tamil.month.en) \(ctx.tamil.day), \(ctx.tamil.yearName.en))"
-        keepOnTopItem.state = app.state.keepOnTop ? .on : .off
-        soundItem.state = app.state.soundEnabled ? .on : .off
 
-        let source = app.state.locationSource
-        let suffix = switch source {
-        case .automatic: "from your Mac's location"
-        case .manual: "chosen by you"
-        case .timeZone: "from your time zone"
-        }
-        locationItem.title = "Location: \(ctx.location.name) (\(suffix))"
-        automaticLocationItem.state = source == .manual ? .off : .on
-        chooseCityItem.state = source == .manual ? .on : .off
-
-        for (style, styleItem) in styleItems {
-            styleItem.state = app.state.style == style ? .on : .off
-        }
-        for (language, languageItem) in languageItems {
-            languageItem.state = app.state.language == language ? .on : .off
-        }
-        for (scale, sizeItem) in sizeItems {
-            sizeItem.state = abs(pad.scale - scale) < 0.01 ? .on : .off
+        frontItem.state = app.state.keepOnTop ? .on : .off
+        // Show the system-wide shortcut beside it (pressing it here works too).
+        if let mods = app.state.frontShortcut.menuModifiers {
+            frontItem.keyEquivalent = "h"
+            frontItem.keyEquivalentModifierMask = mods
+        } else {
+            frontItem.keyEquivalent = ""
         }
     }
 
-    @objc private func showPad() { pad.show() }
-
-    @objc private func toggleKeepOnTop() {
-        app.setKeepOnTop(!app.state.keepOnTop)
-    }
-
-    @objc private func showPhysics() { app.showPhysicsSettings() }
-    @objc private func showSettings() { app.showSettings() }
-    @objc private func toggleLogin() { app.setOpensAtLogin(!app.opensAtLogin) }
-
-    @objc private func toggleSound() {
-        app.setSoundEnabled(!app.state.soundEnabled)
-    }
-
-    @objc private func resetPosition() { pad.resetPosition() }
-    @objc private func clearDesktop() { app.clearDesktop() }
+    @objc private func toggleFront() { app.toggleInFront() }
     @objc private func showGallery() { app.showGallery() }
-    @objc private func useMyLocation() { app.useAutomaticLocation() }
-    @objc private func chooseCity() { app.chooseCity() }
-
-    @objc private func chooseStyle(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let style = PanchangamStyle(rawValue: raw) {
-            app.setStyle(style)
-        }
-    }
-
-    @objc private func chooseLanguage(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let language = CardLanguage(rawValue: raw) {
-            app.setLanguage(language)
-        }
-    }
-
-    @objc private func bigger() { pad.setScale(pad.scale * 1.15) }
-    @objc private func smaller() { pad.setScale(pad.scale / 1.15) }
-
-    @objc private func chooseSize(_ sender: NSMenuItem) {
-        if let scale = sender.representedObject as? CGFloat { pad.setScale(scale) }
-    }
-
+    @objc private func clearDesktop() { app.clearDesktop() }
+    @objc private func showSettings() { app.showSettings() }
     @objc private func previousDay() { app.shiftPadDay(by: -1) }
     @objc private func nextDay() { app.shiftPadDay(by: 1) }
     @objc private func backToToday() { app.resetPadDayToToday() }
-
-    @objc private func showAbout() {
-        NSApp.activate()
-        NSApp.orderFrontStandardAboutPanel(nil)
-    }
-
     @objc private func quit() { NSApp.terminate(nil) }
 }

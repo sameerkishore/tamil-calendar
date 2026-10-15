@@ -28,7 +28,7 @@ private struct SettingsView: View {
 
     @State private var language: CardLanguage
     @State private var style: PanchangamStyle
-    @State private var keepOnTop: Bool
+    @State private var shortcut: FrontShortcut
     @State private var sound: Bool
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
@@ -38,7 +38,7 @@ private struct SettingsView: View {
         self.model = model
         _language = State(initialValue: app.state.language)
         _style = State(initialValue: app.state.style)
-        _keepOnTop = State(initialValue: app.state.keepOnTop)
+        _shortcut = State(initialValue: app.state.frontShortcut)
         _sound = State(initialValue: app.state.soundEnabled)
         _openAtLogin = State(initialValue: app.opensAtLogin)
     }
@@ -81,7 +81,18 @@ private struct SettingsView: View {
             }
 
             Section("Desktop") {
-                Toggle("Keep pad above other windows", isOn: $keepOnTop)
+                Toggle("Calendar in front of all windows", isOn: Binding(get: { model.keepOnTop },
+                                                                          set: { app.setKeepOnTop($0) }))
+                Picker("Shortcut to bring it in front / send it back", selection: $shortcut) {
+                    ForEach(FrontShortcut.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                if shortcut == .controlH {
+                    Text("Works from any app. In some text editors and Terminal ⌃H also deletes a character; pick another if it gets in the way.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                LabeledContent("Lost the calendar?") {
+                    Button("Reset Pad Position") { app.resetPadPosition() }
+                }
                 Toggle("Sound effects", isOn: $sound)
                 Toggle("Open at login", isOn: $openAtLogin)
                 LabeledContent("Tearing feel") {
@@ -101,12 +112,19 @@ private struct SettingsView: View {
                         .disabled(model.context.day >= CalendarDay.today())
                 }
             }
+
+            Section {
+                LabeledContent("Rasi Palan",
+                               value: "Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                Text("Paper sounds, artwork and almanac all made in code. Thirukkural couplets by Thiruvalluvar.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 480)
         .onChange(of: language) { _, v in app.setLanguage(v) }
         .onChange(of: style) { _, v in app.setStyle(v) }
-        .onChange(of: keepOnTop) { _, v in app.setKeepOnTop(v) }
+        .onChange(of: shortcut) { _, v in app.setFrontShortcut(v) }
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }
         .onChange(of: openAtLogin) { _, v in
             app.setOpensAtLogin(v)
