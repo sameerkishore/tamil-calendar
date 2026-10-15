@@ -3,5 +3,7 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 ./scripts/build.sh
-pkill -x RasiPalan 2>/dev/null && sleep 0.5 || true
-open "build/Build/Products/${CONFIG:-Debug}/RasiPalan.app"
+pkill -x "Rasi Palan" 2>/dev/null || true
+pkill -x RasiPalan 2>/dev/null || true
+sleep 0.5
+open "build/Build/Products/${CONFIG:-Debug}/Rasi Palan.app"

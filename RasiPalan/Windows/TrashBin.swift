@@ -124,6 +124,13 @@ final class TrashBinController {
 
     func setLevel(_ level: NSWindow.Level) { window.level = level }
 
+    func bringOnScreen() {
+        if window.isVisible, ScreenFit.bringOnScreen(window) {
+            store.state.binCenter = CGPoint(x: window.frame.midX, y: window.frame.midY)
+            store.save()
+        }
+    }
+
     /// Where the bin is, for the ball physics. Nil while hidden.
     var target: BinTarget? {
         guard window.isVisible, window.alphaValue > 0.5 else { return nil }
@@ -247,10 +254,9 @@ struct TrashBinView: View {
             .padding(.bottom, Self.groundGap * scale)
             // Tipping over to empty, around the bottom-right corner.
             .rotationEffect(.degrees(model.isEmptying ? 32 : 0), anchor: .bottomTrailing)
-            // Full: it can't take any more, and fidgets to say so.
-            .phaseAnimator([-1.0, 1.0]) { content, phase in
-                content.rotationEffect(.degrees(model.isFull && !model.isEmptying ? phase * 2.2 : 0), anchor: .bottom)
-            } animation: { _ in .easeInOut(duration: 0.16) }
+            // Full: it can't take any more, and fidgets to say so. Only animates while full,
+            // so an idle bin costs no CPU.
+            .modifier(FullWobble(active: model.isFull && !model.isEmptying))
             // A little jolt when a ball lands.
             .keyframeAnimator(initialValue: 0.0, trigger: model.landings) { content, dy in
                 content.offset(y: dy * scale)
@@ -260,6 +266,20 @@ struct TrashBinView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+}
+
+private struct FullWobble: ViewModifier {
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if active {
+            content.phaseAnimator([-1.0, 1.0]) { view, phase in
+                view.rotationEffect(.degrees(phase * 2.2), anchor: .bottom)
+            } animation: { _ in .easeInOut(duration: 0.16) }
+        } else {
+            content
+        }
     }
 }
 

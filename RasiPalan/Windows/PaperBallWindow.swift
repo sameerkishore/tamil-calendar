@@ -82,6 +82,16 @@ final class PaperBallsController {
         onCountChanged()
     }
 
+    /// After a display change: anything stranded off-screen comes back.
+    func bringOnScreen() {
+        for (id, controller) in windows where ScreenFit.bringOnScreen(controller.window) {
+            if let i = store.state.paperBalls.firstIndex(where: { $0.id == id }) {
+                store.state.paperBalls[i].center = CGPoint(x: controller.window.frame.midX, y: controller.window.frame.midY)
+            }
+        }
+        store.save()
+    }
+
     func setLevel(_ level: NSWindow.Level) {
         windows.values.forEach { $0.restingLevel = level }
     }

@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import RasiCore
+import ServiceManagement
 
 /// What the pad is currently showing. Views observe this; only `AppController` writes it.
 @MainActor
@@ -56,6 +57,7 @@ final class AppController {
     private var physicsSettings: PhysicsSettingsWindowController?
     private var gallery: TemplateGalleryWindowController?
     private var photoCrop: PhotoCropWindowController?
+    private var settings: SettingsWindowController?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -126,6 +128,11 @@ final class AppController {
         NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.timeZoneChanged() }
         }
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.bringEverythingOnScreen() }
+        }
+        bringEverythingOnScreen()
     }
 
     var state: AppState { store.state }
@@ -194,6 +201,29 @@ final class AppController {
     }
 
     // MARK: - Settings
+
+    func showSettings() {
+        if settings == nil { settings = SettingsWindowController(app: self) }
+        settings?.show()
+    }
+
+    func setPadScale(_ scale: CGFloat) { pad?.setScale(scale) }
+
+    // MARK: - Open at login
+
+    var opensAtLogin: Bool { SMAppService.mainApp.status == .enabled }
+
+    func setOpensAtLogin(_ on: Bool) {
+        do {
+            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = on ? "Couldn't turn on Open at Login" : "Couldn't turn off Open at Login"
+            alert.informativeText = "\(error.localizedDescription)\n\nTip: install the app with scripts/install.sh so it lives in Applications."
+            NSApp.activate()
+            alert.runModal()
+        }
+    }
 
     func showGallery() {
         if gallery == nil {
@@ -300,6 +330,12 @@ final class AppController {
             }
         }
         physicsSettings?.show()
+    }
+
+    private func bringEverythingOnScreen() {
+        floatingSheets?.bringOnScreen()
+        paperBalls?.bringOnScreen()
+        trashBin?.bringOnScreen()
     }
 
     /// Sweeps away every torn sheet and paper ball lying around (the bin keeps what's in it).

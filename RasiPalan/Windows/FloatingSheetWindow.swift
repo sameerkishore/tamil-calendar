@@ -66,6 +66,16 @@ final class FloatingSheetsController {
         store.save()
     }
 
+    /// After a display change: anything stranded off-screen comes back.
+    func bringOnScreen() {
+        for (id, controller) in windows where ScreenFit.bringOnScreen(controller.window) {
+            if let i = store.state.floatingSheets.firstIndex(where: { $0.id == id }) {
+                store.state.floatingSheets[i].center = CGPoint(x: controller.window.frame.midX, y: controller.window.frame.midY)
+            }
+        }
+        store.save()
+    }
+
     func setLevel(_ level: NSWindow.Level) {
         windows.values.forEach { $0.window.level = level }
     }

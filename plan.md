@@ -283,6 +283,8 @@ rasi-palan/
 
 ## 7. Milestones (what we'll do together)
 
+**Status (16 Oct 2026):** M1–M9 complete. Remaining: the layout editor and extra blocks (*Later*).
+
 Each milestone ends with something you can run and play with. Tell me what feels off.
 
 | # | Milestone | You'll be able to… |

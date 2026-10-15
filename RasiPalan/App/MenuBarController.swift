@@ -10,6 +10,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private let dateItem = NSMenuItem()
     private let tamilDateItem = NSMenuItem()
+    private let behindItem = NSMenuItem()
+    private let loginItem = NSMenuItem()
     private let keepOnTopItem = NSMenuItem()
     private let soundItem = NSMenuItem()
     private let locationItem = NSMenuItem()
@@ -38,8 +40,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         dateItem.isEnabled = false
         tamilDateItem.isEnabled = false
+        behindItem.isEnabled = false
         menu.addItem(dateItem)
         menu.addItem(tamilDateItem)
+        menu.addItem(behindItem)
         menu.addItem(.separator())
 
         menu.addItem(item("Show Pad", #selector(showPad)))
@@ -110,8 +114,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         #endif
 
         menu.addItem(item(soundItem, "Sound Effects", #selector(toggleSound)))
+        menu.addItem(item(loginItem, "Open at Login", #selector(toggleLogin)))
         menu.addItem(item("Advanced Physics Settings…", #selector(showPhysics)))
         menu.addItem(.separator())
+        menu.addItem(item("Settings…", #selector(showSettings), key: ","))
         menu.addItem(item("About Rasi Palan", #selector(showAbout)))
         menu.addItem(item("Quit Rasi Palan", #selector(quit), key: "q"))
 
@@ -147,6 +153,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         let ctx = app.model.context
         dateItem.title = "Pad shows: " + ctx.day.longDescription
+        let behind = ctx.day.days(to: .today())
+        behindItem.isHidden = behind <= 0
+        behindItem.title = behind == 1 ? "1 day behind today: time to tear!" : "\(behind) days behind today: time to tear!"
+        loginItem.state = app.opensAtLogin ? .on : .off
         tamilDateItem.title = "\(ctx.tamil.month.ta) \(ctx.tamil.day) · \(ctx.tamil.yearName.ta) "
             + "(\(ctx.tamil.month.en) \(ctx.tamil.day), \(ctx.tamil.yearName.en))"
         keepOnTopItem.state = app.state.keepOnTop ? .on : .off
@@ -180,6 +190,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func showPhysics() { app.showPhysicsSettings() }
+    @objc private func showSettings() { app.showSettings() }
+    @objc private func toggleLogin() { app.setOpensAtLogin(!app.opensAtLogin) }
 
     @objc private func toggleSound() {
         app.setSoundEnabled(!app.state.soundEnabled)
