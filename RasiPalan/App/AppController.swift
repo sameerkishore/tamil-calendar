@@ -59,6 +59,8 @@ final class AppController {
     private var cityPicker: CityPickerWindowController?
     private let tear = TearController()
     private var floatingSheets: FloatingSheetsController?
+    /// ⌘Z while the pad is focused puts the last torn sheet back.
+    let undoManager = UndoManager()
     private var paperBalls: PaperBallsController?
     private var trashBin: TrashBinController?
     private var physicsSettings: PhysicsSettingsWindowController?
@@ -98,6 +100,7 @@ final class AppController {
         personal = PersonalDataService(store: store, model: model)
         personal?.refresh()
         let pad = PadWindowController(store: store, model: model)
+        pad.undoManager = undoManager
         self.pad = pad
         menuBar = MenuBarController(app: self, pad: pad)
         pad.show()
@@ -365,9 +368,32 @@ final class AppController {
 
     /// A sheet came off: the pad moves on to the next day.
     private func advancePad() {
-        store.state.padDay = store.state.padDay.adding(days: 1)
+        let torn = store.state.padDay
+        store.state.padDay = torn.adding(days: 1)
         model.isTearing = false
         commit()
+        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(torn) }
+        undoManager.setActionName("Tear")
+    }
+
+    var canPutSheetBack: Bool { undoManager.canUndo && !model.isTearing }
+
+    /// Undo Tear: the sheet goes back on the pad, and off the desktop if it's still lying there
+    /// (flat or crumpled). One in the bin stays in the bin.
+    func putSheetBack() {
+        guard canPutSheetBack else { return }
+        undoManager.undo()
+    }
+
+    private func putSheetBack(_ day: CalendarDay) {
+        if let sheet = state.floatingSheets.last(where: { $0.day == day }) {
+            floatingSheets?.remove(sheet.id)
+        } else if let ball = state.paperBalls.last(where: { $0.day == day }) {
+            paperBalls?.remove(ball.id)
+        }
+        store.state.padDay = day
+        commit()
+        SoundPlayer.shared.play("rustle", volume: 0.5)
     }
 
     /// Brings the calendar in front of every window, or sends it back to the desktop.

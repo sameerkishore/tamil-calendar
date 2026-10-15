@@ -195,6 +195,11 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// Where ⌘Z goes while the pad is focused (Undo Tear).
+    var undoManager: UndoManager?
+
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? { undoManager }
+
     func windowDidMove(_ notification: Notification) {
         store.state.padOrigin = window.frame.origin
         scheduleSave()

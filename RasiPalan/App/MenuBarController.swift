@@ -13,6 +13,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let tamilDateItem = NSMenuItem()
     private let behindItem = NSMenuItem()
     private let frontItem = NSMenuItem()
+    private let putBackItem = NSMenuItem()
 
     init(app: AppController, pad: PadWindowController) {
         self.app = app
@@ -31,6 +32,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(info)
         }
         menu.addItem(.separator())
+        menu.addItem(item(putBackItem, "Put Sheet Back", #selector(putSheetBack), key: "z"))
         menu.addItem(item(frontItem, "Calendar in Front", #selector(toggleFront)))
         menu.addItem(item(NSMenuItem(), "Templates & Board…", #selector(showGallery)))
         menu.addItem(item(NSMenuItem(), "Clear Desktop", #selector(clearDesktop)))
@@ -104,6 +106,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         behindItem.isHidden = behind <= 0
         behindItem.title = behind == 1 ? "1 day behind today: time to tear!" : "\(behind) days behind today: time to tear!"
 
+        putBackItem.isHidden = !app.canPutSheetBack
         frontItem.state = app.state.keepOnTop ? .on : .off
         // Show the system-wide shortcut beside it (pressing it here works too).
         if let mods = app.state.frontShortcut.menuModifiers {
@@ -114,6 +117,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
+    @objc private func putSheetBack() { app.putSheetBack() }
     @objc private func toggleFront() { app.toggleInFront() }
     @objc private func showGallery() { app.showGallery() }
     @objc private func clearDesktop() { app.clearDesktop() }
