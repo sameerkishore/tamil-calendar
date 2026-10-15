@@ -64,6 +64,8 @@ final class TearController {
     private var state: TearState?
     private var overlayFrame: CGRect = .zero
     private var grab: CGPoint = .zero
+    /// The torn sheet is still in the user's hand (mouse button down).
+    private var held = false
 
     /// Let go past this much and the tear finishes by itself.
     private let finishOnRelease: CGFloat = 0.6
@@ -77,6 +79,7 @@ final class TearController {
         let state = TearState(context: context, layout: layout, theme: theme, origin: origin, size: sheetRect.size)
         self.state = state
         grab = toOverlay(screenPoint)
+        held = false
 
         let window = NSWindow(contentRect: overlayFrame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isOpaque = false
@@ -97,8 +100,14 @@ final class TearController {
     }
 
     func move(to screenPoint: CGPoint, time: TimeInterval) {
-        guard let state, !state.isFree else { return }
+        guard let state else { return }
         let mouse = toOverlay(screenPoint)
+
+        if state.isFree {
+            // Torn off and still held: the sheet goes wherever the hand takes it.
+            if held { state.translation = handOffset(mouse) }
+            return
+        }
         let w = state.size.width, h = state.size.height
 
         // The corner follows the hand, within what a page can physically fold to.
@@ -113,13 +122,19 @@ final class TearController {
             SoundPlayer.shared.setTearIntensity(Double(progress - state.progress) * 30)
             state.progress = progress
         }
-        if state.progress >= 1 { tearOff() }
+        if state.progress >= 1 { tearOff(inHand: mouse) }
     }
 
     func end(at screenPoint: CGPoint, time: TimeInterval) {
-        guard let state, !state.isFree else { return }
-        if state.progress >= finishOnRelease {
-            tearOff()
+        guard let state else { return }
+        if state.isFree {
+            // Let go of a sheet in hand: it stays right where it is.
+            if held {
+                held = false
+                drop()
+            }
+        } else if state.progress >= finishOnRelease {
+            tearOff(inHand: nil)
         } else {
             SoundPlayer.shared.stopTearing()
             if state.progress > 0 { SoundPlayer.shared.play("rustle", volume: 0.7) }
@@ -134,8 +149,14 @@ final class TearController {
         }
     }
 
-    /// The last of the perforation goes: the page unfolds and drops a little onto the desktop.
-    private func tearOff() {
+    /// Translation that puts the point the user grabbed under the mouse.
+    private func handOffset(_ mouse: CGPoint) -> CGSize {
+        CGSize(width: mouse.x - grab.x, height: mouse.y - grab.y)
+    }
+
+    /// The last of the perforation goes and the page unfolds. If the mouse is still down it
+    /// stays in the hand; otherwise it drops a little onto the desktop.
+    private func tearOff(inHand mouse: CGPoint?) {
         guard let state, !state.isFree else { return }
         state.isFree = true
         SoundPlayer.shared.stopTearing()
@@ -144,13 +165,24 @@ final class TearController {
         onTornOff()
 
         let s = state.theme.scale
+        let tilt = CGFloat.random(in: 0.06...0.16) * (Bool.random() ? 1 : -1)
         withAnimation(.easeIn(duration: 0.12)) { state.progress = 1 }
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-            state.fold = .zero
-            state.translation = CGSize(width: 18 * s, height: 46 * s)
-            state.rotation = CGFloat.random(in: 0.06...0.16) * (Bool.random() ? 1 : -1)
+
+        if let mouse {
+            held = true
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                state.fold = .zero
+                state.translation = handOffset(mouse)
+                state.rotation = tilt
+            }
+        } else {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                state.fold = .zero
+                state.translation = CGSize(width: 18 * s, height: 46 * s)
+                state.rotation = tilt
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.drop() }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.drop() }
     }
 
     private func drop() {
