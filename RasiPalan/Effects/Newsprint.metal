@@ -253,3 +253,54 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     half k = half(1.0 + warp * 0.07 + weft * 0.07 + fleck * 0.04);
     return half4(color.rgb * k, color.a);
 }
+
+// One screen of a halftone: the grid is rotated by `angle`; the colour is sampled at the centre of
+// the cell the point falls in, and `channel` (0 c, 1 m, 2 y, 3 k) of it sets the dot's size.
+static half halftoneScreen(float2 position, SwiftUI::Layer layer, float pitch, float angle, int channel) {
+    float2x2 rot = float2x2(cos(angle), -sin(angle), sin(angle), cos(angle));
+    float2x2 back = float2x2(cos(angle), sin(angle), -sin(angle), cos(angle));
+    float2 g = rot * position / pitch;
+    float2 centre = (floor(g) + 0.5);
+    half4 s = layer.sample(back * centre * pitch);
+    half3 c = s.a > 0.001h ? s.rgb / s.a : half3(1.0h);
+
+    // RGB → CMYK, with only part of the grey taken by black so colours stay rich.
+    half k = (1.0h - max(c.r, max(c.g, c.b))) * 0.7h;
+    half3 cmy = clamp((1.0h - c - k) / max(1.0h - k, 0.001h), 0.0h, 1.0h);
+    half cover = channel == 0 ? cmy.x : channel == 1 ? cmy.y : channel == 2 ? cmy.z : k;
+
+    // Dot area tracks coverage; the darkest dots just touch, so a little paper always shows.
+    float r = sqrt(float(cover)) * 0.54;
+    float d = length(g - centre);
+    float aa = 0.6 / pitch + 0.04;
+    return half(1.0 - smoothstep(r - aa, r + aa, d));
+}
+
+// The user's photo on the custom board, with a faint printed feel: mostly the photo itself,
+// a light four-colour halftone screen over it, fine grain, and slightly faded, warm colour.
+// Applied as a layerEffect to the cropped photo; `unit` keeps the dot pitch fixed on the card.
+[[ stitchable ]] half4 halftone(float2 position, SwiftUI::Layer layer, float unit) {
+    float pitch = 2.1 * unit;
+    half cyan = halftoneScreen(position, layer, pitch, 0.2618, 0);     // 15°
+    half magenta = halftoneScreen(position, layer, pitch, 1.3090, 1);  // 75°
+    half yellow = halftoneScreen(position, layer, pitch, 0.0, 2);      // 0°
+    half black = halftoneScreen(position, layer, pitch, 0.7854, 3);    // 45°
+
+    const half3 paper = half3(0.96, 0.93, 0.86);
+    half3 out = paper
+        * mix(half3(1.0h), half3(0.10, 0.62, 0.86), cyan * 0.9h)
+        * mix(half3(1.0h), half3(0.90, 0.16, 0.50), magenta * 0.9h)
+        * mix(half3(1.0h), half3(1.00, 0.88, 0.10), yellow * 0.9h)
+        * mix(half3(1.0h), half3(0.13, 0.12, 0.12), black * 0.85h);
+
+    half4 photo = layer.sample(position);
+    half3 c = photo.a > 0.001h ? photo.rgb / photo.a : paper;
+    // Vintage stock: a touch faded and warm, never crushed.
+    half luma = dot(c, half3(0.299h, 0.587h, 0.114h));
+    c = mix(half3(luma), c, 0.88h);
+    c = mix(c, c * half3(1.03h, 1.0h, 0.92h), 0.6h);
+    c = c * 0.94h + 0.04h;
+    c = mix(c, out, 0.22h);
+    c += half(hash21(floor(position / unit * 1.5)) - 0.5) * 0.05h;
+    return half4(clamp(c, 0.0h, 1.0h), 1.0h);
+}

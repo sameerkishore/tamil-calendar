@@ -158,9 +158,12 @@ struct PhotoPortrait: View {
             ZStack {
                 Color(red: 0.25, green: 0.05, blue: 0.08)
                 if let image {
+                    // Printed on the board like the rest of it: a four-colour halftone.
                     CroppedImage(image: image, crop: crop, size: geo.size)
                         .saturation(1.12)
                         .contrast(1.05)
+                        .layerEffect(ShaderLibrary.halftone(.float(theme.scale)),
+                                     maxSampleOffset: CGSize(width: theme.u(3), height: theme.u(3)))
                 } else {
                     Text("Choose a picture in\nTemplates & Board")
                         .font(theme.latin(12))
