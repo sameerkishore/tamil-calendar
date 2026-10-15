@@ -55,6 +55,17 @@ final class FloatingSheetsController {
         store.save()
     }
 
+    /// Sweeps every one away with a quick fade.
+    func removeAll() {
+        for (_, controller) in windows {
+            NSAnimationContext.runAnimationGroup({ $0.duration = 0.25; controller.window.animator().alphaValue = 0 },
+                                                 completionHandler: { MainActor.assumeIsolated { controller.close() } })
+        }
+        windows.removeAll()
+        store.state.floatingSheets.removeAll()
+        store.save()
+    }
+
     func setLevel(_ level: NSWindow.Level) {
         windows.values.forEach { $0.window.level = level }
     }

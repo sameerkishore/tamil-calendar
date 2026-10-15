@@ -76,6 +76,8 @@ final class AppController {
 
         let bin = TrashBinController(store: store, scale: model.scale, sprites: BallSprites.make(model: model))
         bin.onEmptied = { [weak self] in self?.updateBinVisibility() }
+        bin.onClearDesktop = { [weak self] in self?.clearDesktop() }
+        pad.onScaleChanged = { [weak bin] s in bin?.setScale(s) }
         trashBin = bin
 
         let balls = PaperBallsController(store: store, model: model)
@@ -221,6 +223,13 @@ final class AppController {
             }
         }
         physicsSettings?.show()
+    }
+
+    /// Sweeps away every torn sheet and paper ball lying around (the bin keeps what's in it).
+    func clearDesktop() {
+        floatingSheets?.removeAll()
+        paperBalls?.removeAll()
+        SoundPlayer.shared.play("rustle", volume: 0.8)
     }
 
     /// The bin is out while there are paper balls about or it has something in it.

@@ -70,6 +70,18 @@ final class PaperBallsController {
         onCountChanged()
     }
 
+    /// Sweeps every one away with a quick fade.
+    func removeAll() {
+        for (_, controller) in windows {
+            NSAnimationContext.runAnimationGroup({ $0.duration = 0.25; controller.window.animator().alphaValue = 0 },
+                                                 completionHandler: { MainActor.assumeIsolated { controller.close() } })
+        }
+        windows.removeAll()
+        store.state.paperBalls.removeAll()
+        store.save()
+        onCountChanged()
+    }
+
     func setLevel(_ level: NSWindow.Level) {
         windows.values.forEach { $0.restingLevel = level }
     }
@@ -122,8 +134,11 @@ final class PaperBallWindowController {
 
     // Physics, in points and seconds (scaled with the ball).
     private var radius: CGFloat { 30 * scale }
-    private var gravity: CGFloat { 2_600 * scale }
-    private let throwThreshold: CGFloat = 250
+    private var gravity: CGFloat { 2_200 * scale }
+    /// Below this release speed the ball is just set down.
+    private let throwThreshold: CGFloat = 400
+    /// Share of the hand's speed the ball leaves with: a flick is quicker than the toss it makes.
+    private let throwStrength: CGFloat = 0.45
 
     /// Window side, in points: ball plus room for lumps and shadow.
     static func side(scale: CGFloat) -> CGFloat {
@@ -166,14 +181,14 @@ final class PaperBallWindowController {
     private func letGo(velocity v: CGVector) {
         // Dropped straight into the mouth.
         if let bin = bin(), !bin.isFull, bin.mouth.contains(center.x),
-           abs(center.y - bin.rimY) < radius * 1.6 {
+           center.y > bin.body.midY, center.y < bin.rimY + radius * 2 {
             dropIn(bin)
             return
         }
         let speed = hypot(v.dx, v.dy)
         if speed > throwThreshold {
-            SoundPlayer.shared.play("whoosh", volume: Float(min(speed / 2_500, 1)) * 0.8)
-            fly(from: center, velocity: v)
+            SoundPlayer.shared.play("whoosh", volume: Float(min(speed / 3_000, 1)) * 0.8)
+            fly(from: center, velocity: CGVector(dx: v.dx * throwStrength, dy: v.dy * throwStrength))
         } else {
             window.level = restingLevel
             onRest(center)
@@ -185,7 +200,7 @@ final class PaperBallWindowController {
     private func fly(from start: CGPoint, velocity v: CGVector) {
         position = start
         // Cap silly speeds from a jerk of the mouse.
-        let speed = hypot(v.dx, v.dy), cap = 4_500 * scale
+        let speed = hypot(v.dx, v.dy), cap = 1_900 * scale
         velocity = speed > cap ? CGVector(dx: v.dx / speed * cap, dy: v.dy / speed * cap) : v
         screen = (NSScreen.screens.first { $0.frame.contains(start) } ?? NSScreen.main ?? NSScreen.screens[0]).visibleFrame
         lastStep = ProcessInfo.processInfo.systemUptime
@@ -202,7 +217,7 @@ final class PaperBallWindowController {
         let previous = position
 
         velocity.dy -= gravity * dt
-        velocity.dx *= 1 - 0.25 * dt   // a little air drag
+        velocity.dx *= 1 - 0.6 * dt    // paper balls are light: noticeable air drag
         position.x += velocity.dx * dt
         position.y += velocity.dy * dt
 
@@ -239,8 +254,15 @@ final class PaperBallWindowController {
         let r = radius
         // Crossing the rim line on the way down.
         if previous.y >= bin.rimY && position.y < bin.rimY && velocity.dy < 0 {
-            let inMouth = position.x > bin.mouth.lowerBound + r * 0.25 && position.x < bin.mouth.upperBound - r * 0.25
+            let inMouth = bin.mouth.contains(position.x)
             if inMouth && !bin.isFull {
+                dropIn(bin)
+                return true
+            }
+            // Just inside the rim: catch the edge and tip in, rather than bouncing out.
+            let insideEdge = position.x > bin.body.minX && position.x < bin.body.maxX
+            if insideEdge && !bin.isFull {
+                SoundPlayer.shared.play("rim", volume: 0.5)
                 dropIn(bin)
                 return true
             }

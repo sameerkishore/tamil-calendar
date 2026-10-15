@@ -46,6 +46,7 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     private var scaleAtDragStart: CGFloat = 1
     private var pendingSave: DispatchWorkItem?
 
+    var onScaleChanged: (CGFloat) -> Void = { _ in }
     var onTearBegan: (CGPoint) -> Void = { _ in }
     var onTearMoved: (CGPoint, TimeInterval) -> Void = { _, _ in }
     var onTearEnded: (CGPoint, TimeInterval) -> Void = { _, _ in }
@@ -122,6 +123,7 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         window.setFrame(CGRect(x: old.minX, y: old.maxY - size.height, width: size.width, height: size.height),
                         display: true)
         store.state.padScale = s
+        onScaleChanged(s)
         if let display = displayKey(window.screen) {
             store.state.padScalesByDisplay[display] = s
         }

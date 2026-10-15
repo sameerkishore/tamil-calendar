@@ -57,6 +57,7 @@ final class TrashBinController {
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
         let host = DraggableHostingView(rootView: TrashBinView(model: model, scale: scale, sprites: sprites))
+        self.host = host
         host.onDragEnded = { [weak self] _ in
             guard let self else { return }
             store.state.binCenter = CGPoint(x: window.frame.midX, y: window.frame.midY)
@@ -69,6 +70,9 @@ final class TrashBinController {
             item.target = self?.menuTarget
             item.isEnabled = (self?.model.count ?? 0) > 0
             menu.addItem(item)
+            let clear = NSMenuItem(title: "Clear Desktop (sheets and balls)", action: #selector(TrashBinMenuTarget.clearDesktop), keyEquivalent: "")
+            clear.target = self?.menuTarget
+            menu.addItem(clear)
             return menu
         }
         window.contentView = host
@@ -76,6 +80,21 @@ final class TrashBinController {
     }
 
     private let menuTarget = TrashBinMenuTarget()
+    private var host: DraggableHostingView<TrashBinView>?
+    /// "Clear Desktop" from the bin's right-click menu.
+    var onClearDesktop: () -> Void = {}
+
+    /// Follows the pad's size, keeping the bin standing where it is.
+    func setScale(_ newScale: CGFloat) {
+        guard abs(newScale - scale) > 0.001 else { return }
+        scale = newScale
+        let old = window.frame
+        let size = Self.windowSize(scale: newScale)
+        window.setFrame(CGRect(x: old.midX - size.width / 2, y: old.minY, width: size.width, height: size.height),
+                        display: true)
+        host?.rootView = TrashBinView(model: model, scale: newScale, sprites: sprites)
+        store.state.binCenter = CGPoint(x: window.frame.midX, y: window.frame.midY)
+    }
 
     static func windowSize(scale: CGFloat) -> CGSize {
         // Room around the bin for the heap above the rim, the tip-over and the shadow.
@@ -112,7 +131,7 @@ final class TrashBinController {
         let w = TrashBinView.size.width * scale, h = TrashBinView.size.height * scale
         let body = CGRect(x: f.midX - w / 2, y: f.minY + TrashBinView.groundGap * scale, width: w, height: h)
         let rimY = body.maxY - TrashBinView.rimHeight * scale / 2
-        let inset = w * 0.12
+        let inset = w * 0.05
         return BinTarget(body: body, rimY: rimY, mouth: (body.minX + inset)...(body.maxX - inset), isFull: model.isFull)
     }
 
@@ -147,6 +166,7 @@ final class TrashBinController {
 final class TrashBinMenuTarget: NSObject {
     weak var bin: TrashBinController?
     @objc func empty() { bin?.empty() }
+    @objc func clearDesktop() { bin?.onClearDesktop() }
 }
 
 /// A cheap plastic waste-paper basket: tapered, woven, teal like the calendar's band, seen
@@ -156,8 +176,9 @@ struct TrashBinView: View {
     let scale: CGFloat
     let sprites: [Image]
 
-    static let size = CGSize(width: 104, height: 112)
-    static let rimHeight: CGFloat = 26
+    /// At pad scale 1. The mouth is about twice a paper ball across.
+    static let size = CGSize(width: 150, height: 158)
+    static let rimHeight: CGFloat = 34
     nonisolated static let baseRatio: CGFloat = 0.74
     static let groundGap: CGFloat = 8
 
