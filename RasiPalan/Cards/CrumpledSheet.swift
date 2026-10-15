@@ -11,7 +11,7 @@ struct CrumpledSheet: View {
     @Environment(\.cardTheme) private var theme
 
     /// Ball diameter as a share of sheet width (lumps can poke out a little further).
-    static let ballSize: CGFloat = 0.42
+    static let ballSize: CGFloat = 0.26
 
     var body: some View {
         let size = CGSize(width: theme.u(PadView.sheetSize.width), height: theme.u(PadView.sheetSize.height))

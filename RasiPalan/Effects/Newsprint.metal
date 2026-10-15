@@ -153,14 +153,15 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     float2 c = size * 0.5;
     float2 q = position - c;
     float2 h = size * 0.5;
-    float ballR = min(size.x, size.y) * 0.19;
+    // A small chit makes a small wad: about a quarter of the sheet's width across.
+    float ballR = min(size.x, size.y) * 0.12;
 
     // Outline: rectangle → lumpy, slightly angular ball, with a crinkled edge mid-way.
     float ang = atan2(q.y, q.x);
     float2 dir = float2(cos(ang), sin(ang));
-    float lumps = 0.20 * (valueNoise(dir * 1.6 + seed) - 0.5)
-                + 0.12 * (valueNoise(dir * 4.1 + seed * 2.0) - 0.5)
-                + 0.07 * (valueNoise(dir * 13.0 + seed * 3.0) - 0.5);
+    float lumps = 0.34 * (valueNoise(dir * 1.4 + seed) - 0.5)
+                + 0.16 * (valueNoise(dir * 3.6 + seed * 2.0) - 0.5)
+                + 0.06 * (valueNoise(dir * 9.0 + seed * 3.0) - 0.5);
     float r = ballR * (1.0 + lumps);
     float2 dq = abs(q) - h;
     float sdRect = length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0);
@@ -172,9 +173,9 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
 
     // Three scales of folding, tightening as the paper is squeezed; warped so they don't tile.
     float2 warp = (float2(fbm(q / unit * 0.05 + seed), fbm(q / unit * 0.05 + seed + 7.0)) - 0.5) * 30.0 * unit;
-    float bigSize = mix(140.0, 44.0, e) * unit;
-    float midSize = mix(70.0, 20.0, e) * unit;
-    float fineSize = mix(40.0, 9.0, e) * unit;
+    float bigSize = mix(140.0 * unit, ballR * 0.9, e);
+    float midSize = mix(70.0 * unit, ballR * 0.45, e);
+    float fineSize = mix(40.0 * unit, ballR * 0.2, e);
     float2 bigId, midId, fineId;
     float bigCrease = voronoi((q + warp) / bigSize, seed, bigId);
     float midCrease = voronoi((q - warp * 0.5) / midSize, seed + 3.7, midId);
