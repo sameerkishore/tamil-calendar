@@ -96,7 +96,8 @@ final class PersonalDataService {
         let (start, end) = dayBounds(day)
         let predicate = events.predicateForIncompleteReminders(withDueDateStarting: start, ending: end, calendars: nil)
         return await withCheckedContinuation { continuation in
-            events.fetchReminders(matching: predicate) { found in
+            // EventKit calls back on its own queue, so this closure must not inherit main-actor isolation.
+            events.fetchReminders(matching: predicate) { @Sendable found in
                 let sorted = (found ?? []).sorted {
                     ($0.dueDateComponents?.date ?? .distantFuture) < ($1.dueDateComponents?.date ?? .distantFuture)
                 }
