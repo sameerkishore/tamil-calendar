@@ -144,8 +144,9 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
 
 // Crumpling a printed sheet into a ball. Applied as a layerEffect to the full sheet face.
 // t: 0 = flat sheet … 1 = finished ball. The outline morphs from the rectangle into a lumpy
-// ball; inside, the paper breaks into facets at two scales (big folds and small creases), each
-// showing a squeezed, shifted scrap of the sheet and tilted its own way to catch the light.
+// ball. Early on the sheet is squeezed as a whole; as it closes up, every small facet shows a
+// random scrap from anywhere on the sheet, so like a real paper ball the print is reduced to
+// unreadable fragments, half lost in the folds. Facets at three scales give the crinkle.
 [[ stitchable ]] half4 crumple(float2 position, SwiftUI::Layer layer, float2 size, float t,
                                float unit, float seed) {
     float e = t * t * (3.0 - 2.0 * t);
@@ -154,12 +155,12 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     float2 h = size * 0.5;
     float ballR = min(size.x, size.y) * 0.19;
 
-    // Outline: rectangle → lumpy ball, with a crinkled edge mid-way.
+    // Outline: rectangle → lumpy, slightly angular ball, with a crinkled edge mid-way.
     float ang = atan2(q.y, q.x);
     float2 dir = float2(cos(ang), sin(ang));
-    float lumps = 0.22 * (valueNoise(dir * 1.6 + seed) - 0.5)
+    float lumps = 0.20 * (valueNoise(dir * 1.6 + seed) - 0.5)
                 + 0.12 * (valueNoise(dir * 4.1 + seed * 2.0) - 0.5)
-                + 0.05 * (valueNoise(dir * 11.0 + seed * 3.0) - 0.5);
+                + 0.07 * (valueNoise(dir * 13.0 + seed * 3.0) - 0.5);
     float r = ballR * (1.0 + lumps);
     float2 dq = abs(q) - h;
     float sdRect = length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0);
@@ -169,39 +170,49 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     float alpha = 1.0 - smoothstep(-0.8 * unit, 0.8 * unit, d);
     if (alpha <= 0.0) return half4(0.0h);
 
-    // Two scales of folding, both tightening as the paper is squeezed. A little warp keeps
-    // the cells from looking like tiles.
+    // Three scales of folding, tightening as the paper is squeezed; warped so they don't tile.
     float2 warp = (float2(fbm(q / unit * 0.05 + seed), fbm(q / unit * 0.05 + seed + 7.0)) - 0.5) * 30.0 * unit;
-    float bigSize = mix(140.0, 24.0, e) * unit;
-    float smallSize = mix(60.0, 9.0, e) * unit;
-    float2 bigId, smallId;
+    float bigSize = mix(140.0, 44.0, e) * unit;
+    float midSize = mix(70.0, 20.0, e) * unit;
+    float fineSize = mix(40.0, 9.0, e) * unit;
+    float2 bigId, midId, fineId;
     float bigCrease = voronoi((q + warp) / bigSize, seed, bigId);
-    float smallCrease = voronoi((q - warp * 0.5) / smallSize, seed + 3.7, smallId);
+    float midCrease = voronoi((q - warp * 0.5) / midSize, seed + 3.7, midId);
+    voronoi((q + warp * 0.3) / fineSize, seed + 9.1, fineId);   // texture only, no fold lines
     float2 bigRnd = hash22(bigId + seed * 1.3) - 0.5;
-    float2 smallRnd = hash22(smallId + seed * 2.1) - 0.5;
+    float2 midRnd = hash22(midId + seed * 2.1) - 0.5;
+    float2 fineRnd = hash22(fineId + seed * 4.7) - 0.5;
 
-    // Where in the flat sheet this scrap came from: squeezed towards the centre, each big facet
-    // shifted by its own amount, so the ball shows jumbled bits of the day's print.
+    // Print: early on, the whole sheet squeezed in; later, each mid facet shows a random scrap.
     float squeeze = mix(1.0, length(h) / ballR * 0.85, e);
-    float2 src = c + q * squeeze + bigRnd * bigSize * 2.4 * e + smallRnd * smallSize * 0.6 * e;
+    float2 squeezed = c + q * squeeze + bigRnd * bigSize * 2.0 * e;
+    float2 scrap = (hash22(midId + seed * 5.3) * 0.9 + 0.05) * size + (q - midId * midSize) * 1.6;
+    float2 src = mix(squeezed, scrap, smoothstep(0.3, 0.8, t));
     src = clamp(src, float2(2.0), size - 2.0);
     half4 col = layer.sample(src);
-    if (col.a < 0.5h) col = half4(0.93h, 0.92h, 0.88h, 1.0h); // paper behind torn bits
+    const half3 paper = half3(0.95h, 0.94h, 0.90h);
+    if (col.a < 0.5h) col = half4(paper, 1.0h); // behind torn bits
+    // Much of the ink ends up inside the folds or seen edge-on.
+    col.rgb = mix(col.rgb, paper, half(0.65 * smoothstep(0.4, 1.0, t)));
 
-    // Light: a rounded body, big facets tilted strongly, small creases adding texture.
+    // Light: a rounded body with every facet tilted its own way.
     float2 sp = q / max(r, 1.0);
-    float3 body = normalize(float3(sp * 1.1, sqrt(max(0.05, 1.0 - dot(sp, sp) * 0.85))));
-    float3 n = body + float3(bigRnd * 2.4, 0.0) + float3(smallRnd * 0.9, 0.0);
+    float3 body = normalize(float3(sp * 1.15, sqrt(max(0.05, 1.0 - dot(sp, sp) * 0.85))));
+    float3 n = body + float3(bigRnd * 1.5 + midRnd * 0.7 + fineRnd * 0.2, 0.0);
     n = normalize(mix(float3(0, 0, 1), normalize(n), e));
     float3 light = normalize(float3(-0.5, -0.65, 0.58));
     float lambert = clamp(dot(n, light), 0.0, 1.0);
-    float shade = mix(1.0, 0.58 + 0.62 * lambert, e);
-    shade *= 1.0 - 0.45 * e * (1.0 - smoothstep(0.0, 0.05, bigCrease));    // sharp main folds
-    shade *= 1.0 - 0.22 * e * (1.0 - smoothstep(0.0, 0.07, smallCrease));  // finer creases
-    shade *= 1.0 - 0.35 * e * smoothstep(0.5, 1.0, length(sp));            // rim turns away
+    float shade = mix(1.0, 0.66 + 0.48 * lambert, e);
+    // Crisp sheen where a facet faces the light, like slightly glossy paper.
+    float3 halfway = normalize(light + float3(0, 0, 1));
+    shade += 0.18 * e * pow(clamp(dot(n, halfway), 0.0, 1.0), 18.0);
+    // Folds: crisp main folds, faint secondary creases.
+    shade *= 1.0 - 0.32 * e * (1.0 - smoothstep(0.0, 0.035, bigCrease));
+    shade *= 1.0 - 0.12 * e * (1.0 - smoothstep(0.0, 0.04, midCrease));
+    shade *= 1.0 - 0.28 * e * smoothstep(0.6, 1.0, length(sp));            // rim turns away
 
     // Shadows in paper are warm, not grey.
-    half3 tint = mix(half3(0.86h, 0.80h, 0.70h), half3(1.0h), half(clamp(shade, 0.0, 1.0)));
+    half3 tint = mix(half3(0.84h, 0.78h, 0.68h), half3(1.0h), half(clamp(shade, 0.0, 1.0)));
     col.rgb *= half(shade) * tint;
     return col * half(alpha);
 }
