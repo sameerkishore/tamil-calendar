@@ -8,7 +8,7 @@ final class PhysicsSettingsWindowController {
     private let window: NSWindow
 
     init(physics: TearPhysics, onChange: @escaping (TearPhysics) -> Void) {
-        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 520),
+        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 460, height: 340),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Advanced Physics Settings"
         window.isReleasedWhenClosed = false
@@ -33,25 +33,16 @@ private struct PhysicsSettingsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            choice("Paper strength", "How hard you have to pull before the paper starts to tear.",
-                   $physics.strength, [(.light, "Light"), (.medium, "Medium"), (.heavy, "Heavy")])
+            choice("Tear effort", "How far across the sheet you drag to tear it off.",
+                   $physics.effort, [(.light, "Light"), (.medium, "Medium"), (.heavy, "Heavy")])
 
-            choice("Perforation", "Fine tears in many small ticks; coarse in a few big, chunky ones.",
+            choice("Perforation", "The row of holes along the top of each sheet: many small ones or a few big ones.",
                    $physics.perforation, [(.fine, "Fine"), (.standard, "Standard"), (.coarse, "Coarse")])
 
-            choice("Zip speed", "When you pull quickly, how fast the holes give way one after another.",
-                   $physics.zipSpeed, [(.slow, "Slow"), (.normal, "Normal"), (.quick, "Quick")])
-
-            choice("Paper feel", "How much the sheet bends while you pull. Real calendar paper is crisp.",
-                   $physics.feel, [(.crisp, "Crisp"), (.flexible, "Flexible"), (.floppy, "Floppy")])
-
-            choice("Swing", "How far a half-torn sheet swings on the corner that's still attached.",
-                   $physics.swing, [(.little, "Little"), (.some, "Some"), (.lots, "Lots")])
-
             VStack(alignment: .leading, spacing: 4) {
-                Toggle("Trackpad clicks", isOn: $physics.haptics)
+                Toggle("Trackpad click", isOn: $physics.haptics)
                     .font(.headline)
-                Text("Feel a small click for each hole on a Force Touch trackpad.")
+                Text("Feel a click when the sheet comes off, on a Force Touch trackpad.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

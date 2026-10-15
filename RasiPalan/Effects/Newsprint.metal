@@ -108,18 +108,6 @@ static half blackPlate(half4 s) {
     return half4(out, 1.0h);
 }
 
-// Paper being pulled: the top edge stays pinned, the rest follows the pull more and more
-// towards the bottom, like a sheet bending away from its binding. Applied as a distortionEffect
-// to the sheet drawn with `inset` points of transparent padding around it.
-[[ stitchable ]] float2 paperPull(float2 position, float2 size, float2 pull, float inset) {
-    float y = clamp((position.y - inset) / size.y, 0.0, 1.0);
-    float x = clamp((position.x - inset) / size.x, 0.0, 1.0);
-    float w = pow(y, 1.6);
-    // Corners lead slightly, giving the bend a little curl rather than a pure shear.
-    float curl = 1.0 + 0.25 * (abs(x - 0.5) * 2.0) * y;
-    return position - pull * w * curl;
-}
-
 static float2 hash22(float2 p) {
     float n = hash21(p);
     return float2(n, hash21(p + n + 19.19));

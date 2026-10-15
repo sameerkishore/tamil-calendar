@@ -3,7 +3,7 @@ import Observation
 import RasiCore
 import SwiftUI
 
-/// The pose of the sheet being torn, in overlay coordinates (top-left origin, y down).
+/// The sheet being torn, in overlay coordinates (top-left origin, y down).
 @MainActor
 @Observable
 final class TearState {
@@ -14,17 +14,13 @@ final class TearState {
     let origin: CGPoint
     let size: CGSize
 
-    /// Fraction of the perforation torn, 0…1.
+    /// How far the perforation has torn, left to right, 0…1.
     var progress: CGFloat = 0
-    var tearFromLeft = true
-    /// Hinge on the top edge (sheet-local x) the sheet swings around while still attached.
-    var hingeX: CGFloat = 0
-    /// Clockwise radians about the hinge.
-    var rotation: CGFloat = 0
-    /// Bend, in sheet-local points (bottom edge displacement).
-    var pull: CGSize = .zero
-    /// Movement of the whole sheet once it's free.
+    /// How far the bottom-left corner has been lifted, folding the page over (sheet-local).
+    var fold: CGSize = .zero
+    /// Once it's off: drift and tilt as it drops.
     var translation: CGSize = .zero
+    var rotation: CGFloat = 0
     var isFree = false
 
     init(context: DayContext, layout: CardLayout, theme: CardTheme, origin: CGPoint, size: CGSize) {
@@ -33,16 +29,6 @@ final class TearState {
         self.theme = theme
         self.origin = origin
         self.size = size
-    }
-
-    var hinge: CGPoint { CGPoint(x: origin.x + hingeX, y: origin.y) }
-
-    /// Where a sheet-local point currently is in the overlay.
-    func overlayPoint(local: CGPoint) -> CGPoint {
-        let p = CGPoint(x: origin.x + local.x - hinge.x, y: origin.y + local.y - hinge.y)
-        let c = cos(rotation), s = sin(rotation)
-        return CGPoint(x: hinge.x + p.x * c - p.y * s + translation.width,
-                       y: hinge.y + p.x * s + p.y * c + translation.height)
     }
 }
 
@@ -57,22 +43,18 @@ struct TornSheet {
     var tornFromLeft: Bool
 }
 
-/// Runs one tear gesture: shows the sheet in a full-screen transparent overlay while it's being
-/// pulled, breaks the perforation one hole at a time, and hands the free sheet over to become
-/// a floating window.
-///
-/// Feel: paper barely stretches, so most of the pull becomes tension. Each hole needs a bit more
-/// pull to give way, and holes always break one after another (a fast yank zips through them in
-/// quick succession rather than skipping), each with a tick, a small snap and a haptic click.
+/// One tear: drag across the sheet and it folds like a book page held by its bottom-left
+/// corner while the perforation tears left to right in step with the drag. Far enough across
+/// and it comes off, unfolds and drops onto the desktop.
 @MainActor
 final class TearController {
     /// The top sheet has been lifted: the pad should now show the next day underneath.
     var onLift: () -> Void = {}
     /// The tear was abandoned and the sheet is back on the pad.
     var onSettle: () -> Void = {}
-    /// The sheet is fully off the pad (the pad should advance a day).
+    /// The sheet is off the pad (the pad should advance a day).
     var onTornOff: () -> Void = {}
-    /// The user let go of a free sheet: make it a floating window.
+    /// The sheet has landed: make it a floating window.
     var onDrop: (TornSheet) -> Void = { _ in }
     /// Current feel settings, read at the start of each tear.
     var physics: () -> TearPhysics = { .defaults }
@@ -81,34 +63,20 @@ final class TearController {
     private var overlay: NSWindow?
     private var state: TearState?
     private var overlayFrame: CGRect = .zero
-    private var grab: CGPoint = .zero      // overlay coords at mouse-down
-    private var grabLocal: CGPoint = .zero // sheet-local
-    private var mouse: CGPoint = .zero     // overlay coords, latest
-    private var broken = 0                 // perforation holes torn so far
-    private var targetBroken = 0
-    private var breakTimer: Timer?
-    private var breakInterval: TimeInterval = 0.045
-    private var dropWhenFree = false
-    private var lastBreakTime: TimeInterval = 0
+    private var grab: CGPoint = .zero
 
-    private var isActive: Bool { state != nil }
-
+    /// Let go past this much and the tear finishes by itself.
+    private let finishOnRelease: CGFloat = 0.6
 
     func begin(at screenPoint: CGPoint, sheetRect: CGRect, context: DayContext, layout: CardLayout,
                theme: CardTheme, level: NSWindow.Level) {
-        guard !isActive else { return }
+        guard state == nil else { return }
         p = physics()
         overlayFrame = NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
         let origin = toOverlay(CGPoint(x: sheetRect.minX, y: sheetRect.maxY))
         let state = TearState(context: context, layout: layout, theme: theme, origin: origin, size: sheetRect.size)
         self.state = state
         grab = toOverlay(screenPoint)
-        mouse = grab
-        grabLocal = CGPoint(x: grab.x - origin.x, y: grab.y - origin.y)
-        broken = 0
-        targetBroken = 0
-        breakInterval = p.breakInterval
-        dropWhenFree = false
 
         let window = NSWindow(contentRect: overlayFrame, styleMask: [.borderless], backing: .buffered, defer: false)
         window.isOpaque = false
@@ -129,61 +97,35 @@ final class TearController {
     }
 
     func move(to screenPoint: CGPoint, time: TimeInterval) {
-        guard let state else { return }
-        mouse = toOverlay(screenPoint)
+        guard let state, !state.isFree else { return }
+        let mouse = toOverlay(screenPoint)
+        let w = state.size.width, h = state.size.height
 
-        if state.isFree {
-            // In hand: the grabbed point follows the mouse.
-            let held = state.overlayPoint(local: grabLocal)
-            state.translation.width += mouse.x - held.x
-            state.translation.height += mouse.y - held.y
-            return
-        }
+        // The corner follows the hand, within what a page can physically fold to.
+        let dx = min(max(mouse.x - grab.x, -0.1 * w), 1.5 * w)
+        let dy = min(max(mouse.y - grab.y, -1.1 * h), 0.1 * h)
+        state.fold = CGSize(width: dx, height: dy)
 
-        // Until the first hole goes, pull direction picks the side the tear starts from.
-        let d = CGPoint(x: mouse.x - grab.x, y: mouse.y - grab.y)
-        if broken == 0 {
-            state.tearFromLeft = d.x >= 0
-            state.hingeX = state.tearFromLeft ? state.size.width : 0
+        // The perforation tears left to right as you drag across; torn paper stays torn.
+        let progress = min(max(dx / (w * p.dragAcross), 0), 1)
+        if progress > state.progress {
+            if state.progress == 0 { SoundPlayer.shared.startTearing() }
+            SoundPlayer.shared.setTearIntensity(Double(progress - state.progress) * 30)
+            state.progress = progress
         }
-
-        let s = state.theme.scale
-        let pull = hypot(d.x, d.y)
-        let tension = (pull - p.firstHolePull * s) / (p.tearLength * s)
-        // Every hole is reachable well within the pull length (the pad often sits near a screen
-        // edge), and once most have gone the sheet's own weight rips the last few.
-        var target = tension < 0 ? 0 : min(p.holes, 1 + Int(tension / 0.85 * CGFloat(p.holes - 1)))
-        if CGFloat(max(target, broken)) >= CGFloat(p.holes) * 0.85 { target = p.holes }
-        if target > targetBroken {
-            targetBroken = target
-            scheduleBreaks()
-        }
-        updatePose()
+        if state.progress >= 1 { tearOff() }
     }
 
     func end(at screenPoint: CGPoint, time: TimeInterval) {
-        guard let state else { return }
-        SoundPlayer.shared.setTearIntensity(0)
-
-        if state.isFree {
-            drop()
-        } else if broken * 2 >= p.holes {
-            // Past halfway: zip through the remaining holes, then let it fall free where it is.
-            dropWhenFree = true
-            targetBroken = p.holes
-            breakInterval = p.breakInterval / 2
-            scheduleBreaks()
+        guard let state, !state.isFree else { return }
+        if state.progress >= finishOnRelease {
+            tearOff()
         } else {
-            breakTimer?.invalidate()
-            breakTimer = nil
             SoundPlayer.shared.stopTearing()
-            if broken > 0 || hypot(state.pull.width, state.pull.height) > 2 {
-                SoundPlayer.shared.play("rustle", volume: 0.8)
-            }
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.55)) {
+            if state.progress > 0 { SoundPlayer.shared.play("rustle", volume: 0.7) }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                state.fold = .zero
                 state.progress = 0
-                state.rotation = 0
-                state.pull = .zero
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
                 self?.onSettle()
@@ -192,114 +134,39 @@ final class TearController {
         }
     }
 
-    // MARK: - Perforations
-
-    /// Breaks holes one at a time until `targetBroken`, never faster than `breakInterval` apart.
-    private func scheduleBreaks() {
-        guard breakTimer == nil else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        if now - lastBreakTime >= breakInterval { breakNextHole() }
-        guard broken < targetBroken else { return }
-        breakTimer = Timer.scheduledTimer(withTimeInterval: breakInterval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                guard self.broken < self.targetBroken, self.state != nil else {
-                    self.breakTimer?.invalidate()
-                    self.breakTimer = nil
-                    return
-                }
-                self.breakNextHole()
-            }
-        }
-    }
-
-    private func breakNextHole() {
-        guard let state, broken < targetBroken else { return }
-        broken += 1
-        lastBreakTime = ProcessInfo.processInfo.systemUptime
-
-        if broken == 1 { SoundPlayer.shared.startTearing() }
-        SoundPlayer.shared.play("perf", volume: Float.random(in: 0.55...0.95), pitchJitter: 0.15)
-        SoundPlayer.shared.setTearIntensity(0.35)
-        if p.haptics {
-            NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-        }
-
-        // Each hole gives with a small snap: the sheet jumps a little further into its swing.
-        withAnimation(.spring(response: 0.14, dampingFraction: 0.5)) {
-            state.progress = CGFloat(broken) / CGFloat(p.holes)
-            updatePose()
-        }
-
-        if broken >= p.holes {
-            breakTimer?.invalidate()
-            breakTimer = nil
-            tearOff()
-            if dropWhenFree { drop() }
-        }
-    }
-
-    /// Swing and bend for the current mouse position and tear progress.
-    private func updatePose() {
-        guard let state, !state.isFree else { return }
-        let s = state.theme.scale
-
-        // Swing about the hinge so the grabbed point heads towards the mouse; the more holes
-        // have gone, the freer the sheet is to swing.
-        let hinge = state.hinge
-        let from = atan2(grab.y - hinge.y, grab.x - hinge.x)
-        let to = atan2(mouse.y - hinge.y, mouse.x - hinge.x)
-        var angle = to - from
-        if angle > .pi { angle -= 2 * .pi }
-        if angle < -.pi { angle += 2 * .pi }
-        let freedom = smoothstep(state.progress)
-        state.rotation = max(-p.maxSwing, min(p.maxSwing, angle * freedom))
-
-        // The rest is tension: paper gives only a few points, rubber-banded hard.
-        let held = state.overlayPoint(local: grabLocal)
-        let rest = CGPoint(x: mouse.x - held.x, y: mouse.y - held.y)
-        let c = cos(-state.rotation), sn = sin(-state.rotation)
-        let local = CGPoint(x: rest.x * c - rest.y * sn, y: rest.x * sn + rest.y * c)
-        let len = hypot(local.x, local.y)
-        let limit = p.maxBend * s
-        let bent = len > 0 ? limit * tanh(len / (limit * 6)) / len : 0
-        state.pull = CGSize(width: local.x * bent, height: local.y * bent)
-    }
-
+    /// The last of the perforation goes: the page unfolds and drops a little onto the desktop.
     private func tearOff() {
         guard let state, !state.isFree else { return }
-        SoundPlayer.shared.stopTearing()
-        SoundPlayer.shared.play("rip", volume: 0.55)
-        state.progress = 1
         state.isFree = true
-        // Paper relaxes once it's free, and the grabbed point catches up with the hand.
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-            state.pull = .zero
-            if !dropWhenFree {
-                let held = state.overlayPoint(local: grabLocal)
-                state.translation.width += mouse.x - held.x
-                state.translation.height += mouse.y - held.y
-            }
-        }
+        SoundPlayer.shared.stopTearing()
+        SoundPlayer.shared.play("rip", volume: 0.7)
+        if p.haptics { NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now) }
         onTornOff()
+
+        let s = state.theme.scale
+        withAnimation(.easeIn(duration: 0.12)) { state.progress = 1 }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+            state.fold = .zero
+            state.translation = CGSize(width: 18 * s, height: 46 * s)
+            state.rotation = CGFloat.random(in: 0.06...0.16) * (Bool.random() ? 1 : -1)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.drop() }
     }
 
     private func drop() {
         guard let state else { return }
-        let local = CGPoint(x: state.size.width / 2, y: state.size.height / 2)
-        let c = state.overlayPoint(local: local)
+        let c = CGPoint(x: state.origin.x + state.size.width / 2 + state.translation.width,
+                        y: state.origin.y + state.size.height / 2 + state.translation.height)
         onDrop(TornSheet(context: state.context,
                          center: CGPoint(x: overlayFrame.minX + c.x, y: overlayFrame.maxY - c.y),
                          rotation: state.rotation,
                          scale: state.theme.scale,
-                         tornFromLeft: state.tearFromLeft))
+                         tornFromLeft: true))
         // Let the floating window appear before the overlay copy disappears.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.finish() }
     }
 
     private func finish() {
-        breakTimer?.invalidate()
-        breakTimer = nil
         overlay?.orderOut(nil)
         overlay = nil
         state = nil
@@ -308,41 +175,107 @@ final class TearController {
     private func toOverlay(_ p: CGPoint) -> CGPoint {
         CGPoint(x: p.x - overlayFrame.minX, y: overlayFrame.maxY - p.y)
     }
+}
 
-    private func smoothstep(_ x: CGFloat) -> CGFloat {
-        let t = min(max(x / 0.4, 0), 1)
-        return t * t * (3 - 2 * t)
+/// Draws the sheet being torn: flat part, plus the folded-over corner.
+struct TearOverlayView: View {
+    let state: TearState
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear
+            FoldedSheet(context: state.context, layout: state.layout, size: state.size,
+                        fold: state.fold, torn: state.progress)
+                .rotationEffect(.radians(state.rotation))
+                .shadow(color: .black.opacity(state.isFree ? 0.3 : 0.15), radius: state.isFree ? 8 : 3,
+                        y: state.isFree ? 5 : 2)
+                .offset(x: state.origin.x + state.translation.width, y: state.origin.y + state.translation.height)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// Draws the sheet being torn at its current pose.
-struct TearOverlayView: View {
-    let state: TearState
-    @Environment(\.cardTheme) private var theme
+/// A sheet with its bottom-left corner lifted by `fold` and folded over like a book page.
+/// The fold line is the perpendicular bisector between where the corner was and where it is now;
+/// everything on the corner's side of it is reflected across, showing the back of the paper.
+struct FoldedSheet: View {
+    let context: DayContext
+    let layout: CardLayout
+    let size: CGSize
+    var fold: CGSize
+    var torn: CGFloat
 
     var body: some View {
-        let inset = theme.u(20)
-        let padded = CGSize(width: state.size.width + inset * 2, height: state.size.height + inset * 2)
-        let lift = min(1, 0.3 * hypot(state.pull.width, state.pull.height) / theme.u(6) + state.progress * 0.6
-                       + (state.isFree ? 0.3 : 0))
-
+        let face = SheetFace(context: context, layout: layout, torn: torn, tornFromLeft: true)
+        let corner = CGPoint(x: 0, y: size.height)
+        let len = hypot(fold.width, fold.height)
         ZStack(alignment: .topLeading) {
-            Color.clear
-            SheetFace(context: state.context, layout: state.layout,
-                      torn: state.progress, tornFromLeft: state.tearFromLeft)
-                // Paper lifting off the pad catches less light towards the free end.
-                .overlay(LinearGradient(colors: [.clear, .black.opacity(0.10 * lift)], startPoint: .top, endPoint: .bottom))
-                .padding(inset)
-                .distortionEffect(
-                    ShaderLibrary.paperPull(.float2(state.size), .float2(state.pull), .float(inset)),
-                    maxSampleOffset: CGSize(width: inset, height: inset))
-                .rotationEffect(.radians(state.rotation),
-                                anchor: UnitPoint(x: (inset + state.hingeX) / padded.width, y: inset / padded.height))
-                .shadow(color: .black.opacity(0.18 + 0.2 * lift), radius: theme.u(4 + 14 * lift),
-                        x: theme.u(2 * lift), y: theme.u(3 + 10 * lift))
-                .offset(x: state.origin.x - inset + state.translation.width,
-                        y: state.origin.y - inset + state.translation.height)
+            if len < 0.5 {
+                face
+            } else {
+                let n = CGPoint(x: fold.width / len, y: fold.height / len)
+                let mid = CGPoint(x: corner.x + fold.width / 2, y: corner.y + fold.height / 2)
+                let rect = [CGPoint.zero, CGPoint(x: size.width, y: 0),
+                            CGPoint(x: size.width, y: size.height), CGPoint(x: 0, y: size.height)]
+                let side: (CGPoint) -> CGFloat = { ($0.x - mid.x) * n.x + ($0.y - mid.y) * n.y }
+
+                // The part still lying flat on the pad.
+                face.clipShape(Polygon(points: Self.clip(rect, keep: { side($0) >= 0 })))
+
+                // The folded flap: the back of the sheet, print faintly showing through
+                // (the reflection mirrors it, as it should be), darker towards the crease.
+                face
+                    .overlay(Ink.paper.opacity(0.86))
+                    .overlay(
+                        LinearGradient(colors: [.black.opacity(0.14), .clear],
+                                       startPoint: UnitPoint(x: mid.x / size.width, y: mid.y / size.height),
+                                       endPoint: UnitPoint(x: corner.x / size.width, y: corner.y / size.height)))
+                    .clipShape(Polygon(points: Self.clip(rect, keep: { side($0) < 0 })))
+                    .transformEffect(Self.reflection(across: mid, normal: n))
+                    .shadow(color: .black.opacity(0.28), radius: 5, x: n.x * 3, y: n.y * 3)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+    }
+
+    /// Mirror image across the line through `p` perpendicular to `normal`.
+    static func reflection(across p: CGPoint, normal n: CGPoint) -> CGAffineTransform {
+        // R = I − 2nnᵀ, applied about p.
+        let a = 1 - 2 * n.x * n.x, b = -2 * n.x * n.y, d = 1 - 2 * n.y * n.y
+        return CGAffineTransform(a: a, b: b, c: b, d: d,
+                                 tx: p.x - (a * p.x + b * p.y), ty: p.y - (b * p.x + d * p.y))
+    }
+
+    /// Clips a convex polygon to the half-plane where `keep` is true (Sutherland–Hodgman).
+    static func clip(_ poly: [CGPoint], keep: (CGPoint) -> Bool) -> [CGPoint] {
+        var out: [CGPoint] = []
+        for i in poly.indices {
+            let a = poly[i], b = poly[(i + 1) % poly.count]
+            let ka = keep(a), kb = keep(b)
+            if ka { out.append(a) }
+            if ka != kb {
+                // Find the crossing by bisection: exact enough and free of special cases.
+                var lo = a, hi = b
+                for _ in 0..<20 {
+                    let m = CGPoint(x: (lo.x + hi.x) / 2, y: (lo.y + hi.y) / 2)
+                    if keep(m) == ka { lo = m } else { hi = m }
+                }
+                out.append(lo)
+            }
+        }
+        return out
+    }
+}
+
+struct Polygon: Shape {
+    let points: [CGPoint]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        points.dropFirst().forEach { path.addLine(to: $0) }
+        path.closeSubpath()
+        return path
     }
 }

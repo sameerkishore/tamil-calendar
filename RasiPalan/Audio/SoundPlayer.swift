@@ -73,19 +73,35 @@ final class SoundPlayer {
 
     // MARK: - Continuous tearing
 
+    private var tearTarget: Float = 0
+    private var tearTimer: Timer?
+
     func startTearing() {
         guard isEnabled, !tearPlayer.isPlaying, let buffer = buffers["tear-loop"]?.first, startEngineIfNeeded() else { return }
         tearPlayer.volume = 0
+        tearTarget = 0
         tearPlayer.scheduleBuffer(buffer, at: nil, options: .loops)
         tearPlayer.play()
+        // Glide the volume towards the target and let it die away when the hand stops,
+        // instead of jumping on every mouse event (which crackles).
+        tearTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.glideTearVolume() }
+        }
     }
 
-    /// 0 = silent (not moving) … 1 = tearing fast.
+    private func glideTearVolume() {
+        tearPlayer.volume += (tearTarget - tearPlayer.volume) * 0.25
+        tearTarget *= 0.88
+    }
+
+    /// Nudges the tearing sound up: 0 = silent … 1 = tearing fast. It fades by itself.
     func setTearIntensity(_ intensity: Double) {
-        tearPlayer.volume = Float(min(max(intensity, 0), 1)) * 0.9
+        tearTarget = max(tearTarget, Float(min(max(intensity, 0), 1)) * 0.9)
     }
 
     func stopTearing() {
+        tearTimer?.invalidate()
+        tearTimer = nil
         tearPlayer.stop()
     }
 }
