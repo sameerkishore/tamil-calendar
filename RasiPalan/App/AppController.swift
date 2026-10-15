@@ -18,6 +18,7 @@ final class PadModel {
     /// The printed board the pad hangs on, if any.
     var board: BoardStyle = .none
     var boardImage: NSImage?
+    var boardCrop = PhotoCrop()
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
         CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper)
@@ -54,6 +55,7 @@ final class AppController {
     private var trashBin: TrashBinController?
     private var physicsSettings: PhysicsSettingsWindowController?
     private var gallery: TemplateGalleryWindowController?
+    private var photoCrop: PhotoCropWindowController?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -72,6 +74,7 @@ final class AppController {
         model.layout = CardLayout.bundled[store.state.layoutID] ?? .classic
         model.board = store.state.board
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
+        model.boardCrop = store.state.boardCrop
     }
 
     func start() {
@@ -198,7 +201,8 @@ final class AppController {
                 model: model,
                 chooseLayout: { [weak self] in self?.setLayout($0) },
                 chooseBoard: { [weak self] in self?.setBoard($0) },
-                choosePicture: { [weak self] in self?.chooseBoardImage() })
+                choosePicture: { [weak self] in self?.chooseBoardImage() },
+                adjustPicture: { [weak self] in self?.adjustBoardImage() })
         }
         gallery?.show()
     }
@@ -239,8 +243,23 @@ final class AppController {
             return
         }
         store.state.boardImagePath = dest.path
+        store.state.boardCrop = PhotoCrop()
         model.boardImage = image
+        model.boardCrop = PhotoCrop()
         setBoard(.custom)
+        adjustBoardImage()
+    }
+
+    /// Opens the crop window for the board picture; changes apply live.
+    func adjustBoardImage() {
+        guard let image = model.boardImage else { return chooseBoardImage() }
+        photoCrop = PhotoCropWindowController(image: image, crop: store.state.boardCrop) { [weak self] crop in
+            guard let self else { return }
+            model.boardCrop = crop
+            store.state.boardCrop = crop
+            store.save()
+        }
+        photoCrop?.show()
     }
 
     func setLanguage(_ language: CardLanguage) {

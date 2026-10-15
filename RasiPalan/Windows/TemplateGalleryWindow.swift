@@ -9,13 +9,14 @@ final class TemplateGalleryWindowController {
     private let window: NSWindow
 
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
-         choosePicture: @escaping () -> Void) {
+         choosePicture: @escaping () -> Void, adjustPicture: @escaping () -> Void) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 760, height: 640),
                           styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
-            model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture))
+            model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
+            adjustPicture: adjustPicture))
     }
 
     func show() {
@@ -30,6 +31,7 @@ private struct TemplateGalleryView: View {
     let chooseLayout: (String) -> Void
     let chooseBoard: (BoardStyle) -> Void
     let choosePicture: () -> Void
+    let adjustPicture: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -63,7 +65,8 @@ private struct TemplateGalleryView: View {
                 ForEach(BoardStyle.allCases, id: \.self) { style in
                     Button { chooseBoard(style) } label: {
                         VStack(spacing: 6) {
-                            BoardThumbnail(style: style, image: model.boardImage, year: model.context.day.year)
+                            BoardThumbnail(style: style, image: model.boardImage, crop: model.boardCrop,
+                                           year: model.context.day.year)
                                 .overlay(selection(model.board == style))
                             Text(style.title).font(.caption.bold())
                         }
@@ -73,6 +76,9 @@ private struct TemplateGalleryView: View {
             }
             HStack {
                 Spacer()
+                if model.boardImage != nil {
+                    Button("Adjust Picture…", action: adjustPicture)
+                }
                 Button(model.boardImage == nil ? "Choose Picture…" : "Change Picture…", action: choosePicture)
             }
         }
@@ -91,6 +97,7 @@ private struct TemplateGalleryView: View {
 private struct BoardThumbnail: View {
     let style: BoardStyle
     let image: NSImage?
+    var crop = PhotoCrop()
     let year: Int
 
     var body: some View {
@@ -100,7 +107,7 @@ private struct BoardThumbnail: View {
         let origin = PadView.padOrigin(board: style)
         ZStack(alignment: .topLeading) {
             if style != .none {
-                BoardView(style: style, year: year, image: image)
+                BoardView(style: style, year: year, image: image, crop: crop)
             }
             VStack(spacing: 0) {
                 Rectangle().fill(Ink.red).frame(height: theme.u(PadView.gripHeight))
@@ -110,7 +117,7 @@ private struct BoardThumbnail: View {
             .shadow(color: .black.opacity(0.3), radius: 2, y: 1)
             .offset(x: theme.u(origin.x), y: theme.u(origin.y))
         }
-        .frame(width: theme.u(BoardStyle.size.width), height: theme.u(content.height + 10), alignment: .top)
+        .frame(width: theme.u(BoardStyle.temple.size.width), height: theme.u(content.height + 10), alignment: .top)
         .environment(\.cardTheme, theme)
     }
 }

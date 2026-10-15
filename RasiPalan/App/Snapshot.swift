@@ -78,6 +78,7 @@ enum Snapshot {
         // -snapshotBoard temple: the pad on a board.
         if let board = defaults.string(forKey: "snapshotBoard").flatMap(BoardStyle.init(rawValue:)) {
             model.board = board
+            if let path = defaults.string(forKey: "snapshotImage") { model.boardImage = NSImage(contentsOfFile: path) }
             content = AnyView(PadView(model: model, interactive: false))
         }
 

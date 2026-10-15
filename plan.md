@@ -296,7 +296,7 @@ Each milestone ends with something you can run and play with. Tell me what feels
 | **M7** | Templates, languages and backing boards: 4 templates, Template Gallery, Tamil‑only and English‑only modes, optional boards + custom image | Switch the look and language, mount the pad on a board |
 | **M8** | Panchangam accuracy: tithi, nakshatram, yogam, karanam, festivals; Rasi Palan phrase generator | A genuinely useful daily sheet |
 | **M9** | Polish: launch at login, multiple displays and Spaces, settings, app icon, idle CPU ≈ 0 | Leave it running forever |
-| *Later* | User layout editor and new blocks: weather, to‑do (static text), today's events (static text), notes | Customise your own sheet |
+| *Later* | User layout editor and new blocks: weather, to‑do (static text), today's events (static text), notes, and a small personal photo printed as cheap halftone newsprint ink | Customise your own sheet |
 
 ---
 

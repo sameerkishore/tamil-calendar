@@ -39,6 +39,7 @@ struct AppState: Codable {
     var board: BoardStyle = .none
     /// The user's own board picture, copied into Application Support.
     var boardImagePath: String?
+    var boardCrop = PhotoCrop()
     var soundEnabled = true
     var physics = TearPhysics()
 
@@ -82,6 +83,7 @@ struct AppState: Codable {
         layoutID = try c.decodeIfPresent(String.self, forKey: .layoutID) ?? "classic"
         board = (try? c.decodeIfPresent(BoardStyle.self, forKey: .board)) ?? BoardStyle.none
         boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
+        boardCrop = (try? c.decodeIfPresent(PhotoCrop.self, forKey: .boardCrop)) ?? PhotoCrop()
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }

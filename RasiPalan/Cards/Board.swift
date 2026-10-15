@@ -20,11 +20,14 @@ enum BoardStyle: String, Codable, CaseIterable {
     }
 
     /// Board size in sheet points (at scale 1), and where the pad's top-left sits on it.
-    /// The pad hangs over the bottom edge, as tear-off pads on boards do.
-    static let size = CGSize(width: 480, height: 464)
-    static let padOrigin = CGPoint(x: 90, y: 150)
+    /// The pad hangs over the bottom edge, as tear-off pads on boards do. The photo board is
+    /// taller, so the picture sits entirely above the pad like a deity portrait.
+    var size: CGSize { self == .custom ? CGSize(width: 480, height: 664) : CGSize(width: 480, height: 464) }
+    var padOrigin: CGPoint { CGPoint(x: 90, y: self == .custom ? 350 : 150) }
     /// The coloured band across the board behind the pad.
-    static let band = (top: CGFloat(300), height: CGFloat(118))
+    var band: (top: CGFloat, height: CGFloat) { (self == .custom ? 500 : 300, 118) }
+    /// The arched photo frame on the photo board.
+    static let photoFrame = CGRect(x: 75, y: 30, width: 330, height: 300)
 }
 
 /// A cheap glossy printed board: art at the top, a band across with the brand on the left and
@@ -33,28 +36,29 @@ struct BoardView: View {
     let style: BoardStyle
     let year: Int
     var image: NSImage?
+    var crop = PhotoCrop()
     @Environment(\.cardTheme) private var theme
 
     private static let band = Color(red: 0.05, green: 0.42, blue: 0.43)
 
     var body: some View {
-        let size = CGSize(width: theme.u(BoardStyle.size.width), height: theme.u(BoardStyle.size.height))
+        let size = CGSize(width: theme.u(style.size.width), height: theme.u(style.size.height))
         ZStack(alignment: .topLeading) {
             background(size)
 
             // Band, brand and year.
             Rectangle().fill(Self.band)
-                .frame(width: size.width, height: theme.u(BoardStyle.band.height))
-                .offset(y: theme.u(BoardStyle.band.top))
+                .frame(width: size.width, height: theme.u(style.band.height))
+                .offset(y: theme.u(style.band.top))
             sideText(size)
             // The printer's credit, as on every real calendar board.
             Text("Printed at RASI PALAN PRESS\nDESKTOP-1")
                 .font(.system(size: theme.u(5.5), weight: .bold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.8))
-                .frame(width: theme.u(BoardStyle.padOrigin.x))
-                .offset(x: size.width - theme.u(BoardStyle.padOrigin.x),
-                        y: theme.u(BoardStyle.band.top + BoardStyle.band.height - 20))
+                .frame(width: theme.u(style.padOrigin.x))
+                .offset(x: size.width - theme.u(style.padOrigin.x),
+                        y: theme.u(style.band.top + style.band.height - 20))
 
             // Nail.
             Circle().fill(LinearGradient(colors: [.white, .gray, .black.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing))
@@ -74,7 +78,7 @@ struct BoardView: View {
         case .temple:
             // A whole scene, drawn in sheet points and scaled to the board.
             TempleScene()
-                .frame(width: BoardStyle.size.width, height: BoardStyle.size.height)
+                .frame(width: style.size.width, height: style.size.height)
                 .scaleEffect(theme.scale, anchor: .topLeading)
                 .frame(width: size.width, height: size.height, alignment: .topLeading)
         case .kolam:
@@ -96,21 +100,20 @@ struct BoardView: View {
                     .stroke(Color(red: 0.85, green: 0.68, blue: 0.3), lineWidth: theme.u(3))
                     .padding(theme.u(10)))
         case .custom:
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: size.width, height: size.height)
-                    .clipped()
-                    .saturation(1.15)
-            } else {
+            ZStack(alignment: .topLeading) {
                 Rectangle().fill(Color(red: 0.55, green: 0.10, blue: 0.16))
+                    .overlay(RosettePattern(spacing: theme.u(30))
+                        .stroke(Color(red: 0.42, green: 0.05, blue: 0.11).opacity(0.7), lineWidth: max(1, theme.u(1.1))))
+                    .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
+                PhotoPortrait(image: image, crop: crop)
+                    .frame(width: theme.u(BoardStyle.photoFrame.width), height: theme.u(BoardStyle.photoFrame.height))
+                    .offset(x: theme.u(BoardStyle.photoFrame.minX), y: theme.u(BoardStyle.photoFrame.minY))
             }
         }
     }
 
     private func sideText(_ size: CGSize) -> some View {
-        let side = theme.u(BoardStyle.padOrigin.x)
+        let side = theme.u(style.padOrigin.x)
         return HStack(spacing: 0) {
             VStack(spacing: theme.u(-6)) {
                 Text("ராசி")
@@ -131,8 +134,95 @@ struct BoardView: View {
         }
         .foregroundStyle(.white)
         .shadow(color: .black.opacity(0.3), radius: theme.u(1), y: theme.u(1))
-        .frame(width: size.width, height: theme.u(BoardStyle.band.height))
-        .offset(y: theme.u(BoardStyle.band.top))
+        .frame(width: size.width, height: theme.u(style.band.height))
+        .offset(y: theme.u(style.band.top))
+    }
+}
+
+/// Which part of the user's photo shows in the frame: zoom (1 = just fills it) and the point
+/// of the photo at the frame's centre (0…1 across and down).
+struct PhotoCrop: Codable, Equatable {
+    var zoom: Double = 1
+    var x: Double = 0.5
+    var y: Double = 0.4
+}
+
+/// The user's photo in a gold-bordered arched frame, cropped as they chose.
+struct PhotoPortrait: View {
+    let image: NSImage?
+    let crop: PhotoCrop
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                Color(red: 0.25, green: 0.05, blue: 0.08)
+                if let image {
+                    CroppedImage(image: image, crop: crop, size: geo.size)
+                        .saturation(1.12)
+                        .contrast(1.05)
+                } else {
+                    Text("Choose a picture in\nTemplates & Board")
+                        .font(theme.latin(12))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .clipShape(Arch())
+            .overlay(Arch().stroke(Color(red: 0.95, green: 0.76, blue: 0.32), lineWidth: theme.u(5)))
+            .overlay(Arch().inset(by: theme.u(7)).stroke(Color(red: 0.95, green: 0.76, blue: 0.32).opacity(0.7), lineWidth: max(1, theme.u(1))))
+            .shadow(color: .black.opacity(0.35), radius: theme.u(3), y: theme.u(2))
+        }
+    }
+}
+
+/// An image filling `size`, zoomed and positioned by `crop`, never leaving gaps.
+struct CroppedImage: View {
+    let image: NSImage
+    let crop: PhotoCrop
+    let size: CGSize
+
+    var body: some View {
+        let iw = max(image.size.width, 1), ih = max(image.size.height, 1)
+        let s = max(size.width / iw, size.height / ih) * crop.zoom
+        let dw = iw * s, dh = ih * s
+        // Put the chosen point at the centre, then keep the image covering the frame.
+        let ox = min(0, max(size.width - dw, size.width / 2 - CGFloat(crop.x) * dw))
+        let oy = min(0, max(size.height - dh, size.height / 2 - CGFloat(crop.y) * dh))
+        Image(nsImage: image)
+            .resizable()
+            .frame(width: dw, height: dh)
+            .offset(x: ox, y: oy)
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            .clipped()
+    }
+}
+
+/// A rectangle with a rounded, temple-doorway arch on top.
+struct Arch: InsettableShape {
+    var insetAmount: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let archH = r.width * 0.32
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX, y: r.minY + archH))
+        p.addCurve(to: CGPoint(x: r.midX, y: r.minY),
+                   control1: CGPoint(x: r.minX, y: r.minY + archH * 0.45),
+                   control2: CGPoint(x: r.midX - r.width * 0.28, y: r.minY))
+        p.addCurve(to: CGPoint(x: r.maxX, y: r.minY + archH),
+                   control1: CGPoint(x: r.midX + r.width * 0.28, y: r.minY),
+                   control2: CGPoint(x: r.maxX, y: r.minY + archH * 0.45))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+        p.closeSubpath()
+        return p
+    }
+
+    func inset(by amount: CGFloat) -> Arch {
+        var a = self
+        a.insetAmount += amount
+        return a
     }
 }
 

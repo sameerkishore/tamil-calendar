@@ -26,14 +26,14 @@ struct PadView: View {
 
     /// Where the pad's top-left sits within the content (on a board it hangs below the art).
     static func padOrigin(board: BoardStyle) -> CGPoint {
-        board == .none ? .zero : BoardStyle.padOrigin
+        board == .none ? .zero : board.padOrigin
     }
 
     /// Everything drawn (pad, plus board if any), in sheet points.
     static func contentSize(board: BoardStyle) -> CGSize {
         board == .none
             ? CGSize(width: sheetSize.width, height: padHeight)
-            : CGSize(width: BoardStyle.size.width, height: max(BoardStyle.size.height, BoardStyle.padOrigin.y + padHeight))
+            : CGSize(width: board.size.width, height: max(board.size.height, board.padOrigin.y + padHeight))
     }
 
     static func windowSize(scale: CGFloat, board: BoardStyle) -> CGSize {
@@ -60,7 +60,7 @@ struct PadView: View {
 
         ZStack(alignment: .topLeading) {
             if model.board != .none {
-                BoardView(style: model.board, year: top.day.year, image: model.boardImage)
+                BoardView(style: model.board, year: top.day.year, image: model.boardImage, crop: model.boardCrop)
                     .overlay { if interactive { WindowDragHandle() } }
             }
             pad(theme: theme, sheet: sheet, top: top)
