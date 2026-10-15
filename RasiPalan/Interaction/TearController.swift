@@ -239,6 +239,7 @@ struct FoldedSheet: View {
 
     var body: some View {
         let face = SheetFace(context: context, layout: layout, torn: torn, tornFromLeft: true)
+        let paper = layout.paper.color
         let corner = CGPoint(x: 0, y: size.height)
         let len = hypot(fold.width, fold.height)
         ZStack(alignment: .topLeading) {
@@ -257,7 +258,7 @@ struct FoldedSheet: View {
                 // The folded flap: the back of the sheet, print faintly showing through
                 // (the reflection mirrors it, as it should be), darker towards the crease.
                 face
-                    .overlay(Ink.paper.opacity(0.86))
+                    .overlay(paper.opacity(0.86))
                     .overlay(
                         LinearGradient(colors: [.black.opacity(0.14), .clear],
                                        startPoint: UnitPoint(x: mid.x / size.width, y: mid.y / size.height),

@@ -28,6 +28,10 @@ enum BlockRegistry {
         ComingSoonBlock.self,
         NoteBlock.self,
         FooterBlock.self,
+        BigDateBlock.self,
+        TamilDateLineBlock.self,
+        RasiPalanBlock.self,
+        RuleBlock.self,
     ]
 
     private static let byType: [String: any CardBlock.Type] =

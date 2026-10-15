@@ -26,6 +26,21 @@ enum Ink {
     static let faded = Color(red: 0.10, green: 0.09, blue: 0.08).opacity(0.35)
 }
 
+/// The card stock a template is printed on.
+enum PaperStock: String, Codable {
+    /// Off-white newsprint, black and red ink.
+    case newsprint
+    /// Dark card, cream and saffron ink.
+    case dark
+
+    var color: Color {
+        switch self {
+        case .newsprint: Ink.paper
+        case .dark: Color(red: 0.14, green: 0.13, blue: 0.12)
+        }
+    }
+}
+
 /// Everything a block needs to draw itself at the right size and in the right language.
 /// All measurements in blocks go through `u(_:)` so the card stays vector-crisp at any scale.
 struct CardTheme {
@@ -33,6 +48,7 @@ struct CardTheme {
     var language: CardLanguage = .tamilEnglish
     /// Holes in the perforation along the top of each sheet.
     var perforations: Int = TearPhysics.defaults.holes
+    var paper: PaperStock = .newsprint
 
     func u(_ points: CGFloat) -> CGFloat { points * scale }
 

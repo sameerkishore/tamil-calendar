@@ -34,6 +34,11 @@ struct AppState: Codable {
     /// Where the waste-paper bin stands (centre, screen coordinates) and how many balls are in it.
     var binCenter: CGPoint?
     var binCount = 0
+    /// Which template the sheets are printed with (CardLayout id).
+    var layoutID = "classic"
+    var board: BoardStyle = .none
+    /// The user's own board picture, copied into Application Support.
+    var boardImagePath: String?
     var soundEnabled = true
     var physics = TearPhysics()
 
@@ -74,6 +79,9 @@ struct AppState: Codable {
         paperBalls = (try? c.decodeIfPresent([PaperBallRecord].self, forKey: .paperBalls)) ?? []
         binCenter = try c.decodeIfPresent(CGPoint.self, forKey: .binCenter)
         binCount = try c.decodeIfPresent(Int.self, forKey: .binCount) ?? 0
+        layoutID = try c.decodeIfPresent(String.self, forKey: .layoutID) ?? "classic"
+        board = (try? c.decodeIfPresent(BoardStyle.self, forKey: .board)) ?? BoardStyle.none
+        boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }

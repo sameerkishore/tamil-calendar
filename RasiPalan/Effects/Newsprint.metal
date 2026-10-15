@@ -205,3 +205,41 @@ static float voronoi(float2 g, float seed, thread float2 &cellId) {
     col.rgb *= half(shade) * tint;
     return col * half(alpha);
 }
+
+// Ink on dark card stock: the black plate prints cream, the red plate prints the accent colour.
+// Same press flaws as newsprintInk; returns ink with alpha, drawn normally over the dark paper.
+[[ stitchable ]] half4 darkStockInk(float2 position, SwiftUI::Layer layer,
+                                   float unit, float seed, float2 redOffset) {
+    float2 p = position / unit;
+    float spread = 0.35 * unit;
+    half k = blackPlate(layer.sample(position));
+    half around = max(max(blackPlate(layer.sample(position + float2(spread, 0))),
+                          blackPlate(layer.sample(position - float2(spread, 0)))),
+                      max(blackPlate(layer.sample(position + float2(0, spread))),
+                          blackPlate(layer.sample(position - float2(0, spread)))));
+    k = max(k, around * 0.18h);
+    half r = redPlate(layer.sample(position - redOffset * unit));
+
+    half density = half(0.78 + 0.22 * fbm(p * 0.05 + seed * 1.7));
+    half dropout = half(1.0 - 0.7 * specks(p * 0.9 + seed * 5.3, 0.07));
+    k *= density * dropout;
+    r *= density * half(1.0 - 0.6 * specks(p * 0.8 + seed * 9.1, 0.06));
+
+    const half3 creamInk = half3(0.93, 0.89, 0.80);
+    const half3 accentInk = half3(0.96, 0.62, 0.20);
+    half a = clamp(k + r, 0.0h, 1.0h);
+    if (a < 0.001h) return half4(0.0h);
+    half3 c = (creamInk * k * (1.0h - r) + accentInk * r) / max(k * (1.0h - r) + r, 0.001h);
+    return half4(c * a, a);
+}
+
+// Glossy printed card (the backing board): fine print grain and a soft sheen from the top left.
+[[ stitchable ]] half4 boardPrint(float2 position, half4 color, float2 size, float unit, float seed) {
+    float2 p = position / unit;
+    float grain = hash21(floor(p * 1.3) + seed) - 0.5;
+    float blotch = fbm(p * 0.02 + seed) - 0.5;
+    float2 uv = position / size;
+    float sheen = 0.10 * smoothstep(0.9, 0.0, length(uv - float2(0.15, 0.05)));
+    half3 c = color.rgb * half(1.0 + grain * 0.06 + blotch * 0.08) + half(sheen);
+    return half4(c * color.a, color.a);
+}

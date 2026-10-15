@@ -57,7 +57,7 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     init(store: StateStore, model: PadModel) {
         self.store = store
         self.model = model
-        window = PadWindow(size: PadView.windowSize(scale: model.scale))
+        window = PadWindow(size: PadView.windowSize(scale: model.scale, board: model.board))
         super.init()
 
         let host = PadHostingView(rootView: PadView(
@@ -103,10 +103,23 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     /// The top sheet's rectangle in screen coordinates (AppKit, y up).
     var sheetScreenRect: CGRect {
         let s = model.scale, f = window.frame
-        return CGRect(x: f.minX + PadView.margin * s,
-                      y: f.maxY - (PadView.margin + PadView.gripHeight + PadView.sheetSize.height) * s,
+        let o = PadView.sheetOrigin(board: model.board)
+        return CGRect(x: f.minX + o.x * s,
+                      y: f.maxY - (o.y + PadView.sheetSize.height) * s,
                       width: PadView.sheetSize.width * s,
                       height: PadView.sheetSize.height * s)
+    }
+
+    /// The board went on or off (or changed): resize the window, keeping the pad where it is.
+    func boardChanged() {
+        let sheet = sheetScreenRect
+        let size = PadView.windowSize(scale: model.scale, board: model.board)
+        let o = PadView.sheetOrigin(board: model.board)
+        let s = model.scale
+        window.setFrame(CGRect(x: sheet.minX - o.x * s, y: sheet.maxY + o.y * s - size.height,
+                               width: size.width, height: size.height), display: true)
+        store.state.padOrigin = window.frame.origin
+        scheduleSave()
     }
 
     // MARK: - Size
@@ -118,7 +131,7 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         let s = min(max(newScale, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
         guard abs(s - model.scale) > 0.001 else { return }
         let old = window.frame
-        let size = PadView.windowSize(scale: s)
+        let size = PadView.windowSize(scale: s, board: model.board)
         model.scale = s
         window.setFrame(CGRect(x: old.minX, y: old.maxY - size.height, width: size.width, height: size.height),
                         display: true)
@@ -168,8 +181,9 @@ final class PadWindowController: NSObject, NSWindowDelegate {
     private func isVisibleOnSomeScreen(origin: CGPoint) -> Bool {
         let s = model.scale
         let frame = CGRect(origin: origin, size: window.frame.size)
-        let grip = CGRect(x: frame.minX + PadView.margin * s,
-                          y: frame.maxY - (PadView.margin + PadView.gripHeight) * s,
+        let o = PadView.sheetOrigin(board: model.board)
+        let grip = CGRect(x: frame.minX + o.x * s,
+                          y: frame.maxY - o.y * s,
                           width: PadView.sheetSize.width * s,
                           height: PadView.gripHeight * s)
         return NSScreen.screens.contains { $0.visibleFrame.intersection(grip).width > 60 }

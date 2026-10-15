@@ -18,16 +18,25 @@ struct PrintedSheet<Content: View>: View {
 
         ZStack {
             Rectangle()
-                .fill(Ink.paper)
+                .fill(theme.paper.color)
                 .colorEffect(ShaderLibrary.newsprintPaper(
                     .float2(size), .float(theme.scale), .float(seed), .float(age)))
 
-            content
-                .frame(width: size.width, height: size.height)
-                .layerEffect(ShaderLibrary.newsprintInk(
-                    .float(theme.scale), .float(seed), .float2(redOffset)),
-                    maxSampleOffset: CGSize(width: theme.u(2), height: theme.u(2)))
-                .blendMode(.multiply)
+            switch theme.paper {
+            case .newsprint:
+                content
+                    .frame(width: size.width, height: size.height)
+                    .layerEffect(ShaderLibrary.newsprintInk(
+                        .float(theme.scale), .float(seed), .float2(redOffset)),
+                        maxSampleOffset: CGSize(width: theme.u(2), height: theme.u(2)))
+                    .blendMode(.multiply)
+            case .dark:
+                content
+                    .frame(width: size.width, height: size.height)
+                    .layerEffect(ShaderLibrary.darkStockInk(
+                        .float(theme.scale), .float(seed), .float2(redOffset)),
+                        maxSampleOffset: CGSize(width: theme.u(2), height: theme.u(2)))
+            }
         }
         .frame(width: size.width, height: size.height)
         .compositingGroup()

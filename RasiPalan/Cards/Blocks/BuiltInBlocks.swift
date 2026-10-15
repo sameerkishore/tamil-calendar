@@ -63,7 +63,7 @@ struct TamilDateBlock: CardBlock {
     }
 }
 
-/// "ராகு 1.30-3   குளிகை 9-10.30   எமகண்டம் 6-7.30"
+/// "ராகு 1.30-3   குளிகை 9-10.30   எமகண்டம் 6-7.30". Params: `only` = "rahu" for Rahu Kalam alone.
 struct TimingsBlock: CardBlock {
     static let type = "timings"
     static let displayName = "Rahu Kalam & timings"
@@ -74,20 +74,27 @@ struct TimingsBlock: CardBlock {
     var body: some View {
         let c = context.day
         let t = c.timings
-        HStack(spacing: theme.u(12)) {
-            item(Names.rahuKalam, c.range(t.rahuKalam))
-            item(Names.kuligai, c.range(t.kuligai))
-            item(Names.yamagandam, c.range(t.yamagandam))
+        // Longest times (precise style) step down a size rather than getting cut off.
+        ViewThatFits(in: .horizontal) {
+            ForEach([1.0, 0.88, 0.76, 0.66] as [CGFloat], id: \.self) { k in
+                HStack(spacing: theme.u(12 * k)) {
+                    item(Names.rahuKalam, c.range(t.rahuKalam), k)
+                    if context.params["only"] != "rahu" {
+                        item(Names.kuligai, c.range(t.kuligai), k)
+                        item(Names.yamagandam, c.range(t.yamagandam), k)
+                    }
+                }
+                .lineLimit(1)
+                .fixedSize()
+            }
         }
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
         .padding(.horizontal, theme.u(10))
     }
 
-    private func item(_ name: LocalizedText, _ value: String) -> some View {
-        HStack(spacing: theme.u(4)) {
-            theme.label(name, 12.5, bold: true)
-            Text(value).font(theme.latin(11.5, bold: true))
+    private func item(_ name: LocalizedText, _ value: String, _ k: CGFloat) -> some View {
+        HStack(spacing: theme.u(4 * k)) {
+            theme.label(name, 12.5 * k, bold: true)
+            Text(value).font(theme.latin(11.5 * k, bold: true))
         }
     }
 }
@@ -184,5 +191,113 @@ struct FooterBlock: CardBlock {
         .foregroundStyle(Ink.red)
         .padding(.horizontal, theme.u(14))
         .padding(.bottom, theme.u(10))
+    }
+}
+
+/// Centred, oversized date for sparse templates: month line, huge number, weekday.
+/// Params: `size` (numeral points, default 150).
+struct BigDateBlock: CardBlock {
+    static let type = "bigDate"
+    static let displayName = "Big date"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let c = context.day
+        let size = context.params["size"].flatMap(Double.init).map { CGFloat($0) } ?? 150
+        VStack(spacing: 0) {
+            Group {
+                if theme.language == .english {
+                    Text("\(c.gregorianMonth.en.uppercased()) \(String(c.day.year))").font(theme.latin(12))
+                } else {
+                    Text("\(c.gregorianMonth.ta) \(String(c.day.year))").font(theme.tamil(14))
+                }
+            }
+            .foregroundStyle(Ink.red)
+            Text("\(c.day.day)")
+                .font(theme.numeral(size))
+                .scaleEffect(x: 0.84, y: 1)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.top, theme.u(-size * 0.06))
+            Group {
+                if theme.language == .english {
+                    Text(c.weekday.en.uppercased()).font(theme.latin(22, bold: true))
+                } else {
+                    Text(c.weekday.ta).font(theme.tamil(24, bold: true))
+                }
+            }
+            .padding(.top, theme.u(-size * 0.1))
+        }
+        .padding(.top, theme.u(14))
+    }
+}
+
+/// One line of Tamil date: "புரட்டாசி 28 · பராபவ".
+struct TamilDateLineBlock: CardBlock {
+    static let type = "tamilDateLine"
+    static let displayName = "Tamil date (one line)"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let t = context.day.tamil
+        HStack(spacing: theme.u(6)) {
+            theme.label(t.month, 14, bold: true)
+            Text("\(t.day)").font(theme.latin(14, bold: true))
+            Text("·").font(theme.latin(14))
+            theme.label(t.yearName, 13)
+        }
+    }
+}
+
+/// The day's one-word Rasi Palan for all 12 rasis, in a grid.
+struct RasiPalanBlock: CardBlock {
+    static let type = "rasiPalan"
+    static let displayName = "Rasi Palan"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let words = RasiPalan.words(for: context.day.day)
+        VStack(spacing: theme.u(3)) {
+            theme.label(LocalizedText(ta: "இன்றைய ராசி பலன்", en: "Today's Rasi Palan"), 10.5, bold: true)
+                .foregroundStyle(Ink.red)
+            Grid(horizontalSpacing: theme.u(8), verticalSpacing: theme.u(2.5)) {
+                ForEach(0..<4, id: \.self) { row in
+                    GridRow {
+                        ForEach(0..<3, id: \.self) { col in
+                            let i = row * 3 + col
+                            HStack(spacing: theme.u(2)) {
+                                theme.label(RasiPalan.rasis[i], 9.5, bold: true)
+                                Text("–").font(theme.latin(8))
+                                theme.label(words[i], 9.5)
+                            }
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, theme.u(10))
+    }
+}
+
+/// A short horizontal rule. Params: `width` (share of the sheet, default 0.9).
+struct RuleBlock: CardBlock {
+    static let type = "rule"
+    static let displayName = "Rule"
+    let context: BlockContext
+    init(_ context: BlockContext) { self.context = context }
+    @Environment(\.cardTheme) private var theme
+
+    var body: some View {
+        let share = context.params["width"].flatMap(Double.init).map { CGFloat($0) } ?? 0.9
+        Rectangle().fill(context.params["ink"] == "red" ? Ink.red : Ink.black)
+            .frame(width: theme.u(PadView.sheetSize.width) * share, height: max(1, theme.u(1)))
     }
 }

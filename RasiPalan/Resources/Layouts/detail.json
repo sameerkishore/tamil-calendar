@@ -1,0 +1,14 @@
+{
+  "id": "detail",
+  "name": "Panchangam Detail",
+  "summary": "Dense like an almanac page: both dates, every timing and the day's Rasi Palan.",
+  "rows": [
+    { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 178, "ruleBelow": true },
+    { "blocks": ["timings"], "top": 8 },
+    { "blocks": ["sunTimes"], "top": 5 },
+    { "blocks": [{ "type": "rule", "params": { "width": "0.9" } }], "top": 8 },
+    { "blocks": ["rasiPalan"], "top": 6 },
+    { "flex": true },
+    { "blocks": ["footer"] }
+  ]
+}

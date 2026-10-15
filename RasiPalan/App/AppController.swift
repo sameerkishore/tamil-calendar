@@ -15,9 +15,12 @@ final class PadModel {
     /// The top sheet is off being torn; the pad shows the next day on top.
     var isTearing = false
     var perforations = TearPhysics.defaults.holes
+    /// The printed board the pad hangs on, if any.
+    var board: BoardStyle = .none
+    var boardImage: NSImage?
 
     func theme(scale: CGFloat? = nil) -> CardTheme {
-        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations)
+        CardTheme(scale: scale ?? self.scale, language: language, perforations: perforations, paper: layout.paper)
     }
 
     init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
@@ -50,6 +53,7 @@ final class AppController {
     private var paperBalls: PaperBallsController?
     private var trashBin: TrashBinController?
     private var physicsSettings: PhysicsSettingsWindowController?
+    private var gallery: TemplateGalleryWindowController?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -65,6 +69,9 @@ final class AppController {
         model = PadModel(context: Self.context(for: store.state), language: store.state.language,
                          scale: store.state.padScale)
         model.perforations = store.state.physics.holes
+        model.layout = CardLayout.bundled[store.state.layoutID] ?? .classic
+        model.board = store.state.board
+        model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
     }
 
     func start() {
@@ -184,6 +191,57 @@ final class AppController {
     }
 
     // MARK: - Settings
+
+    func showGallery() {
+        if gallery == nil {
+            gallery = TemplateGalleryWindowController(
+                model: model,
+                chooseLayout: { [weak self] in self?.setLayout($0) },
+                chooseBoard: { [weak self] in self?.setBoard($0) },
+                choosePicture: { [weak self] in self?.chooseBoardImage() })
+        }
+        gallery?.show()
+    }
+
+    func setLayout(_ id: String) {
+        guard let layout = CardLayout.bundled[id] else { return }
+        store.state.layoutID = id
+        store.save()
+        model.layout = layout
+    }
+
+    func setBoard(_ board: BoardStyle) {
+        if board == .custom && model.boardImage == nil {
+            chooseBoardImage()
+            return
+        }
+        store.state.board = board
+        store.save()
+        model.board = board
+        pad?.boardChanged()
+    }
+
+    /// Lets the user pick a picture for the board; copies it into Application Support.
+    func chooseBoardImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.message = "Choose a picture for the calendar board, e.g. your family deity or a favourite photo."
+        NSApp.activate()
+        guard panel.runModal() == .OK, let url = panel.url, let image = NSImage(contentsOf: url) else { return }
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("RasiPalan", isDirectory: true)
+        let dest = dir.appendingPathComponent("board-image." + (url.pathExtension.isEmpty ? "png" : url.pathExtension))
+        try? FileManager.default.removeItem(at: dest)
+        do {
+            try FileManager.default.copyItem(at: url, to: dest)
+        } catch {
+            NSLog("RasiPalan: couldn't copy board image: \(error)")
+            return
+        }
+        store.state.boardImagePath = dest.path
+        model.boardImage = image
+        setBoard(.custom)
+    }
 
     func setLanguage(_ language: CardLanguage) {
         store.state.language = language

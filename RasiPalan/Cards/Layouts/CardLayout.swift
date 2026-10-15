@@ -15,7 +15,19 @@ import SwiftUI
 struct CardLayout: Codable, Identifiable {
     var id: String
     var name: String
+    /// One line for the template gallery.
+    var summary: String = ""
+    var paper: PaperStock = .newsprint
     var rows: [Row]
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        summary = try c.decodeIfPresent(String.self, forKey: .summary) ?? ""
+        paper = try c.decodeIfPresent(PaperStock.self, forKey: .paper) ?? .newsprint
+        rows = try c.decode([Row].self, forKey: .rows)
+    }
 
     struct Row: Codable {
         var blocks: [BlockSpec] = []
@@ -74,6 +86,11 @@ struct CardLayout: Codable, Identifiable {
     }()
 
     static var classic: CardLayout { bundled["classic"]! }
+
+    /// Gallery order.
+    static var all: [CardLayout] {
+        ["classic", "minimal", "detail", "dark"].compactMap { bundled[$0] }
+    }
 }
 
 /// Draws a layout's rows for one day. Contains no knowledge of individual blocks.

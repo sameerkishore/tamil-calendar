@@ -196,3 +196,14 @@ struct ReferenceSheet {
         #expect(CalendarDay(year: 2026, month: 10, day: 15).weekday == 5) // Thursday
     }
 }
+
+@Suite struct RasiPalanTests {
+    @Test func stableAndVaried() {
+        let day = CalendarDay(year: 2026, month: 10, day: 15)
+        let a = RasiPalan.words(for: day), b = RasiPalan.words(for: day)
+        #expect(a == b)
+        #expect(a.count == 12)
+        #expect(Set(a.map(\.en)).count == 12)
+        #expect(RasiPalan.words(for: day.adding(days: 1)) != a)
+    }
+}

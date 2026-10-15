@@ -1,0 +1,15 @@
+{
+  "id": "dark",
+  "name": "Modern Dark",
+  "summary": "Cream and saffron ink on dark card, for dark desktops.",
+  "paper": "dark",
+  "rows": [
+    { "blocks": [{ "type": "bigDate", "params": { "size": "140" } }], "top": 4 },
+    { "blocks": ["tamilDateLine"], "top": 2 },
+    { "blocks": [{ "type": "rule", "params": { "width": "0.5", "ink": "red" } }], "top": 12 },
+    { "blocks": ["timings"], "top": 12 },
+    { "blocks": ["sunTimes"], "top": 6 },
+    { "flex": true },
+    { "blocks": ["footer"] }
+  ]
+}

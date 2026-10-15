@@ -21,9 +21,30 @@ struct PadView: View {
     static let stackDepth = 4
     static let stackStep: CGFloat = 2
 
-    static func windowSize(scale: CGFloat) -> CGSize {
-        CGSize(width: (sheetSize.width + margin * 2) * scale,
-               height: (gripHeight + sheetSize.height + CGFloat(stackDepth) * stackStep + margin * 2) * scale)
+    /// Binding strip, sheet and the edges of the stack under it.
+    static let padHeight = gripHeight + sheetSize.height + CGFloat(stackDepth) * stackStep
+
+    /// Where the pad's top-left sits within the content (on a board it hangs below the art).
+    static func padOrigin(board: BoardStyle) -> CGPoint {
+        board == .none ? .zero : BoardStyle.padOrigin
+    }
+
+    /// Everything drawn (pad, plus board if any), in sheet points.
+    static func contentSize(board: BoardStyle) -> CGSize {
+        board == .none
+            ? CGSize(width: sheetSize.width, height: padHeight)
+            : CGSize(width: BoardStyle.size.width, height: max(BoardStyle.size.height, BoardStyle.padOrigin.y + padHeight))
+    }
+
+    static func windowSize(scale: CGFloat, board: BoardStyle) -> CGSize {
+        let c = contentSize(board: board)
+        return CGSize(width: (c.width + margin * 2) * scale, height: (c.height + margin * 2) * scale)
+    }
+
+    /// Top-left of the top sheet within the window, in sheet points from the top-left.
+    static func sheetOrigin(board: BoardStyle) -> CGPoint {
+        let o = padOrigin(board: board)
+        return CGPoint(x: margin + o.x, y: margin + o.y + gripHeight)
     }
 
     @State private var hovering = false
@@ -34,6 +55,24 @@ struct PadView: View {
         // While the top sheet is being torn it's drawn by the tear overlay; the next one shows here.
         let top = model.isTearing ? model.nextContext : model.context
 
+        let origin = Self.padOrigin(board: model.board)
+        let content = Self.contentSize(board: model.board)
+
+        ZStack(alignment: .topLeading) {
+            if model.board != .none {
+                BoardView(style: model.board, year: top.day.year, image: model.boardImage)
+                    .overlay { if interactive { WindowDragHandle() } }
+            }
+            pad(theme: theme, sheet: sheet, top: top)
+                .offset(x: theme.u(origin.x), y: theme.u(origin.y))
+        }
+        .frame(width: theme.u(content.width), height: theme.u(content.height), alignment: .topLeading)
+        .padding(theme.u(Self.margin))
+        .environment(\.cardTheme, theme)
+        .onHover { hovering = $0 }
+    }
+
+    private func pad(theme: CardTheme, sheet: CGSize, top: DayContext) -> some View {
         VStack(spacing: 0) {
             BindingStrip(day: top.day)
                 .frame(height: theme.u(Self.gripHeight))
@@ -45,7 +84,7 @@ struct PadView: View {
                 // Edges of the sheets underneath: older, more yellowed stock.
                 ForEach((1...Self.stackDepth).reversed(), id: \.self) { i in
                     Rectangle()
-                        .fill(Ink.paper)
+                        .fill(theme.paper.color)
                         .overlay(Color(red: 0.45, green: 0.38, blue: 0.2).opacity(0.05 + Double(i) * 0.03))
                         .frame(width: sheet.width, height: sheet.height)
                         .offset(y: theme.u(CGFloat(i) * Self.stackStep))
@@ -73,9 +112,6 @@ struct PadView: View {
         .frame(width: sheet.width)
         .compositingGroup()
         .shadow(color: .black.opacity(0.35), radius: theme.u(10), x: 0, y: theme.u(6))
-        .padding(theme.u(Self.margin))
-        .environment(\.cardTheme, theme)
-        .onHover { hovering = $0 }
     }
 }
 

@@ -46,6 +46,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item(keepOnTopItem, "Keep Pad Above Windows", #selector(toggleKeepOnTop)))
         menu.addItem(item("Reset Pad Position", #selector(resetPosition)))
         menu.addItem(item("Clear Desktop (torn sheets and balls)", #selector(clearDesktop)))
+        menu.addItem(.separator())
+        menu.addItem(item("Templates & Board…", #selector(showGallery)))
 
         let sizeMenu = NSMenu()
         sizeMenu.addItem(item("Bigger", #selector(bigger), key: "+"))
@@ -185,6 +187,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc private func resetPosition() { pad.resetPosition() }
     @objc private func clearDesktop() { app.clearDesktop() }
+    @objc private func showGallery() { app.showGallery() }
     @objc private func useMyLocation() { app.useAutomaticLocation() }
     @objc private func chooseCity() { app.chooseCity() }
 

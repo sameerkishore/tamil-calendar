@@ -65,6 +65,22 @@ enum Snapshot {
             })
         }
 
+        // -snapshotTemplates 1: today's sheet in every template.
+        if defaults.double(forKey: "snapshotTemplates") > 0 {
+            content = AnyView(HStack(spacing: 20) {
+                ForEach(CardLayout.all) { layout in
+                    SheetFace(context: context, layout: layout)
+                        .environment(\.cardTheme, CardTheme(scale: 1, language: language, paper: layout.paper))
+                }
+            }.padding(20))
+        }
+
+        // -snapshotBoard temple: the pad on a board.
+        if let board = defaults.string(forKey: "snapshotBoard").flatMap(BoardStyle.init(rawValue:)) {
+            model.board = board
+            content = AnyView(PadView(model: model, interactive: false))
+        }
+
         let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,

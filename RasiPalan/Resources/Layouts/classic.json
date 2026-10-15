@@ -1,6 +1,7 @@
 {
   "id": "classic",
   "name": "Classic",
+  "summary": "Like the calendar on the wall: English date left, Tamil date right, timings below.",
   "rows": [
     { "blocks": ["gregorianDate", "tamilDate"], "separators": true, "height": 200, "ruleBelow": true },
     { "blocks": ["timings"], "top": 12 },
