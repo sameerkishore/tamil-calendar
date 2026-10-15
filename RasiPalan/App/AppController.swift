@@ -48,6 +48,7 @@ final class AppController {
     private let tear = TearController()
     private var floatingSheets: FloatingSheetsController?
     private var paperBalls: PaperBallsController?
+    private var trashBin: TrashBinController?
     private var physicsSettings: PhysicsSettingsWindowController?
 
     /// Only move the saved location if the user has really travelled.
@@ -73,14 +74,22 @@ final class AppController {
         menuBar = MenuBarController(app: self, pad: pad)
         pad.show()
 
+        let bin = TrashBinController(store: store, scale: model.scale, sprites: BallSprites.make(model: model))
+        bin.onEmptied = { [weak self] in self?.updateBinVisibility() }
+        trashBin = bin
+
         let balls = PaperBallsController(store: store, model: model)
-        balls.restore(level: pad.level)
+        balls.level = { pad.level }
+        balls.bin = { [weak bin] in bin?.target }
+        balls.onBinned = { [weak bin] in bin?.accept() }
+        balls.onCountChanged = { [weak self] in self?.updateBinVisibility() }
+        balls.restore()
         paperBalls = balls
+        updateBinVisibility()
 
         let sheets = FloatingSheetsController(store: store, model: model)
         sheets.onCrumpled = { [weak self] sheet, _ in
-            guard let self, let pad = self.pad else { return }
-            paperBalls?.add(PaperBallRecord(sheet: sheet), level: pad.level)
+            self?.paperBalls?.add(PaperBallRecord(sheet: sheet))
         }
         sheets.restore(level: pad.level)
         floatingSheets = sheets
@@ -198,6 +207,7 @@ final class AppController {
         if let pad {
             floatingSheets?.setLevel(pad.level)
             paperBalls?.setLevel(pad.level)
+            trashBin?.setLevel(pad.level)
         }
     }
 
@@ -211,6 +221,16 @@ final class AppController {
             }
         }
         physicsSettings?.show()
+    }
+
+    /// The bin is out while there are paper balls about or it has something in it.
+    private func updateBinVisibility() {
+        guard let bin = trashBin, let pad, let balls = paperBalls else { return }
+        if !balls.isEmpty || bin.model.count > 0 {
+            bin.show(level: pad.level)
+        } else {
+            bin.hide()
+        }
     }
 
     func setSoundEnabled(_ on: Bool) {

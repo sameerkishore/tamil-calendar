@@ -110,7 +110,7 @@ final class FloatingSheetWindowController {
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
         let host = DraggableHostingView(rootView: FloatingSheetView(record: record, model: model, crumple: crumple))
-        host.onDragEnded = { [weak self] in
+        host.onDragEnded = { [weak self] _ in
             guard let self else { return }
             onMoved(CGPoint(x: window.frame.midX, y: window.frame.midY))
         }
@@ -163,40 +163,6 @@ final class FloatingSheetWindowController {
 final class CrumpleState {
     var t: CGFloat = 0
     var spin: CGFloat = 0
-}
-
-/// Drag anywhere to move the window; a click without movement is reported separately.
-final class DraggableHostingView<Content: View>: NSHostingView<Content> {
-    var onDragEnded: () -> Void = {}
-    var onClick: () -> Void = {}
-    private var start: CGPoint = .zero
-    private var startOrigin: CGPoint = .zero
-    private var dragged = false
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func mouseDown(with event: NSEvent) {
-        start = NSEvent.mouseLocation
-        startOrigin = window?.frame.origin ?? .zero
-        dragged = false
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        let p = NSEvent.mouseLocation
-        if !dragged && hypot(p.x - start.x, p.y - start.y) < 3 { return }
-        if !dragged { NSCursor.closedHand.push() }
-        dragged = true
-        window?.setFrameOrigin(CGPoint(x: startOrigin.x + p.x - start.x, y: startOrigin.y + p.y - start.y))
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        if dragged {
-            NSCursor.pop()
-            onDragEnded()
-        } else {
-            onClick()
-        }
-    }
 }
 
 struct FloatingSheetView: View {

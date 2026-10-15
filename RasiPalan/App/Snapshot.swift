@@ -51,6 +51,20 @@ enum Snapshot {
             }.environment(\.cardTheme, theme))
         }
 
+        // -snapshotBin 1: the bin empty, part full and full.
+        if defaults.double(forKey: "snapshotBin") > 0 {
+            let sprites = BallSprites.make(model: model)
+            let binSize = TrashBinController.windowSize(scale: 1.5)
+            content = AnyView(HStack(spacing: 0) {
+                ForEach([0, 4, 7, 10], id: \.self) { n in
+                    let bin = BinModel()
+                    let _ = bin.count = n
+                    TrashBinView(model: bin, scale: 1.5, sprites: sprites)
+                        .frame(width: binSize.width, height: binSize.height)
+                }
+            })
+        }
+
         let renderer = ImageRenderer(content: content.background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,
