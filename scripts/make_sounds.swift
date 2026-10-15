@@ -127,12 +127,37 @@ func writeWAV(_ buf: [Double], to url: URL) throws {
 
 let paperBand = { [Biquad.highpass(700), .lowpass(7_500)] }()
 
+/// Paper tearing: a fibrous rasp, not clicks. Noise whose loudness flutters irregularly as
+/// fibres snap (a rough random modulation in the 30–120 Hz range, with occasional bigger
+/// snags), shaped to paper's papery mid-range with a little low body.
+/// `intensity(t)` 0…1 controls how hard it's tearing over time.
+func rasp(seconds: Double, seed: UInt64, intensity: (Double) -> Double) -> [Double] {
+    var rng = RNG(seed)
+    var flutter = Biquad.lowpass(90)       // smoothed random = irregular fibre-rate flutter
+    var slow = Biquad.lowpass(9)           // slower swells as the tear speeds and slows
+    var snagLeft = 0, snagGain = 0.0
+    var out = [Double](repeating: 0, count: samples(seconds))
+    for i in out.indices {
+        let t = Double(i) / sampleRate
+        let f = abs(flutter(rng.noise())) * 9
+        let w = 0.6 + abs(slow(rng.noise())) * 6
+        if snagLeft == 0 && rng.next() < 0.0012 {
+            snagLeft = samples(0.004 + rng.next() * 0.01)
+            snagGain = 1 + rng.next() * 1.5
+        }
+        var amp = (0.25 + f) * w
+        if snagLeft > 0 { amp *= snagGain; snagLeft -= 1 }
+        out[i] = rng.noise() * amp * intensity(t)
+    }
+    let papery = filter(out, [.highpass(280), .lowpass(4_200)])
+    let presence = filter(out, [.bandpass(1_600, q: 0.9)])
+    let body = filter(out, [.bandpass(420, q: 1.1)])
+    return zip(zip(papery, presence), body).map { 0.7 * $0.0 + 0.5 * $0.1 + 0.35 * $1 }
+}
+
 /// Continuous tearing texture, looped while the sheet is being torn; volume follows tear speed.
 func tearLoop() -> [Double] {
-    let seconds = 2.0
-    var c = crackles(seconds: seconds, seed: 11, rate: { 500 + 300 * sin($0 * 9) }, gain: { _ in 0.6 })
-    c = mix(c, hiss(seconds: seconds, seed: 12) { 0.12 + 0.06 * sin($0 * 23) })
-    c = filter(c, paperBand)
+    var c = rasp(seconds: 2.0, seed: 11) { _ in 1 }
     // Seamless loop: crossfade the tail into the head.
     let x = samples(0.08)
     for i in 0..<x {
@@ -142,26 +167,22 @@ func tearLoop() -> [Double] {
     return normalize(Array(c.dropLast(x)), peak: 0.7)
 }
 
-/// The final rip as the sheet comes free: crackles accelerate, then a sharp snap.
+/// The last of the paper giving way: a rising rasp that ends with the sheet's soft flap.
 func rip(seed: UInt64) -> [Double] {
-    let seconds = 0.32
-    var c = crackles(seconds: seconds, seed: seed, rate: { 300 + 4_000 * $0 / seconds },
-                     gain: { 0.4 + 0.6 * $0 / seconds })
-    var snap = hiss(seconds: 0.06, seed: seed + 100) { exp(-$0 / 0.012) * 2.2 }
-    snap = filter(snap, [.highpass(1_200)])
-    c = mix(c, snap, at: samples(seconds - 0.05))
-    return normalize(fade(filter(c, paperBand), outMs: 25), peak: 0.9)
+    let seconds = 0.3
+    var c = rasp(seconds: seconds, seed: seed) { t in 0.4 + 0.6 * min(t / (seconds * 0.8), 1) }
+    let flap = filter(hiss(seconds: 0.09, seed: seed + 100) { exp(-$0 / 0.025) * 1.4 }, [.lowpass(700)])
+    c = mix(c, flap, at: samples(seconds - 0.07))
+    return normalize(fade(c, inMs: 8, outMs: 40), peak: 0.85)
 }
 
-/// One perforation giving way: a tiny, crisp paper "tick".
+/// One perforation hole giving way: a tiny soft burst of rasp, "tsk", not a click.
 func perforation(seed: UInt64) -> [Double] {
     var rng = RNG(seed)
-    let seconds = 0.05 + rng.next() * 0.03
-    var click = hiss(seconds: 0.004, seed: seed + 50) { exp(-$0 / 0.0008) * 1.6 }
-    click = filter(click, [.highpass(2_500)])
-    var c = crackles(seconds: seconds, seed: seed, rate: { _ in 2_500 }, gain: { exp(-$0 / 0.012) }, burstMs: 0.2...1.2)
-    c = mix(c, click)
-    return normalize(fade(filter(c, [.highpass(1_400), .lowpass(9_000)]), inMs: 0.3, outMs: 8), peak: 0.8)
+    let seconds = 0.06 + rng.next() * 0.04
+    let decay = 0.016 + rng.next() * 0.014
+    let c = rasp(seconds: seconds, seed: seed) { t in min(t / 0.006, 1) * exp(-t / decay) } // quick swell, quick fade
+    return normalize(fade(c, inMs: 2, outMs: 12), peak: 0.75)
 }
 
 /// Gentle paper settling, for a sheet snapping back onto the pad.
@@ -180,8 +201,10 @@ func crumple(seed: UInt64) -> [Double] {
     let gain: (Double) -> Double = { t in
         0.15 + bursts.reduce(0) { acc, b in acc + b.2 * exp(-pow((t - b.0) / b.1, 2)) }
     }
-    let c = crackles(seconds: seconds, seed: seed + 7, rate: { 600 + 1_400 * gain($0) }, gain: gain, burstMs: 0.3...4)
-    return normalize(fade(filter(c, [.highpass(500), .lowpass(9_000)]), outMs: 60), peak: 0.9)
+    let crinkle = filter(crackles(seconds: seconds, seed: seed + 7, rate: { 300 + 800 * gain($0) }, gain: gain,
+                                  burstMs: 1...6), [.highpass(350), .lowpass(5_500)])
+    let scrunch = rasp(seconds: seconds, seed: seed + 9) { gain($0) * 0.8 }
+    return normalize(fade(mix(crinkle.map { $0 * 0.6 }, scrunch), outMs: 60), peak: 0.9)
 }
 
 /// A paper ball flying through the air.

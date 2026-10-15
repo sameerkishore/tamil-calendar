@@ -150,7 +150,10 @@ final class TearController {
         let s = state.theme.scale
         let pull = hypot(d.x, d.y)
         let tension = (pull - p.firstHolePull * s) / (p.tearLength * s)
-        let target = tension < 0 ? 0 : min(p.holes, 1 + Int(tension * CGFloat(p.holes - 1)))
+        // Every hole is reachable well within the pull length (the pad often sits near a screen
+        // edge), and once most have gone the sheet's own weight rips the last few.
+        var target = tension < 0 ? 0 : min(p.holes, 1 + Int(tension / 0.85 * CGFloat(p.holes - 1)))
+        if CGFloat(max(target, broken)) >= CGFloat(p.holes) * 0.85 { target = p.holes }
         if target > targetBroken {
             targetBroken = target
             scheduleBreaks()
