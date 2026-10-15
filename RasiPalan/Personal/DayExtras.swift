@@ -24,9 +24,12 @@ struct PrintedWeather: Codable, Hashable {
     var low: Double
     /// Chance of rain, percent.
     var rain: Int?
+    /// Temperature and conditions right now. Only on today's sheet.
+    var now: Double?
+    var nowCode: Int?
 
     var description: LocalizedText {
-        switch code {
+        switch nowCode ?? code {
         case 0: .init(ta: "தெளிவான வானம்", en: "Clear sky")
         case 1, 2: .init(ta: "ஓரளவு மேகமூட்டம்", en: "Partly cloudy")
         case 3: .init(ta: "மேகமூட்டம்", en: "Overcast")
@@ -42,7 +45,7 @@ struct PrintedWeather: Codable, Hashable {
 
     /// SF Symbol, printed in ink like everything else.
     var symbol: String {
-        switch code {
+        switch nowCode ?? code {
         case 0: "sun.max"
         case 1, 2: "cloud.sun"
         case 3: "cloud"

@@ -112,7 +112,8 @@ enum Snapshot {
                             "Get appointment for flu vaccine", "Follow up with curriculum email", "Book Appa’s ticket",
                             "Fill interview - Camille", "Call Andrew from reform", "Look at Jay’s gift",
                             "Recheck the excel sheet"],
-                events: [PrintedEvent(time: "9.30", title: "Team standup")])
+                events: [PrintedEvent(time: "9.30", title: "Team standup")],
+                weather: PrintedWeather(code: 1, high: 36.2, low: 28.4, rain: 20, now: 31.6, nowCode: 0))
             let below = LayoutDraft(from: .classic)
             below.header = .twoColumn
             below.items = [.init(type: RemindersBlock.type), .init(type: EventsBlock.type)]
@@ -120,11 +121,17 @@ enum Snapshot {
             let beside = LayoutDraft(from: .classic)
             beside.header = .twoColumn
             beside.headerRight = .init(type: RemindersBlock.type)
+            let weather = LayoutDraft(from: .classic)
+            weather.header = .twoColumn
+            weather.headerRight = .init(type: WeatherBlock.type)
+            weather.items = [.init(type: RemindersBlock.type), .init(type: WeatherBlock.type)]
+            weather.footer = true
             beside.items = [.init(type: PanchangamBlock.type), .init(type: TimingsBlock.type), .init(type: EventsBlock.type)]
             beside.footer = true
             content = AnyView(HStack(spacing: 20) {
                 SheetFace(context: context, layout: below.layout, extras: sample)
                 SheetFace(context: context, layout: beside.layout, extras: sample)
+                SheetFace(context: context, layout: weather.layout, extras: sample)
             }.environment(\.cardTheme, theme).padding(20))
         }
 

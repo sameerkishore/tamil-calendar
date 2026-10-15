@@ -88,6 +88,7 @@ final class LayoutDraft {
             var right = CardLayout.BlockSpec(headerRight.type, headerRight.params)
             // The Tamil date sets its own top margin; other blocks need one to clear the perforation.
             if right.type != TamilDateBlock.type { right.params["top"] = "16" }
+            if right.type == WeatherBlock.type { right.params["size"] = "big" }
             rows.append(.init(blocks: [.init(GregorianDateBlock.type), right],
                               separators: true, height: 186, ruleBelow: true))
         case .bigDate:

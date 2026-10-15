@@ -139,17 +139,19 @@ final class PersonalDataService {
         }
     }
 
-    /// 16-day forecast from Open-Meteo (free, no account). Only the city's rounded coordinates
-    /// are sent. Cached for three hours per location.
+    /// 16-day forecast plus current conditions from Open-Meteo (free, no account). Only the city's
+    /// rounded coordinates are sent. Cached for 25 minutes per location, so each half-hourly
+    /// refresh brings a new current temperature (Open-Meteo updates it every 15 minutes).
     private func weather() async -> [CalendarDay: PrintedWeather] {
         let location = model.context.location
-        if let cache = weatherCache, cache.location == location, Date().timeIntervalSince(cache.fetched) < 3 * 3600 {
+        if let cache = weatherCache, cache.location == location, Date().timeIntervalSince(cache.fetched) < 25 * 60 {
             return cache.days
         }
         var url = URLComponents(string: "https://api.open-meteo.com/v1/forecast")!
         url.queryItems = [
             .init(name: "latitude", value: String(format: "%.2f", location.latitude)),
             .init(name: "longitude", value: String(format: "%.2f", location.longitude)),
+            .init(name: "current", value: "temperature_2m,weather_code"),
             .init(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"),
             .init(name: "timezone", value: location.timeZoneID),
             .init(name: "forecast_days", value: "16"),
@@ -162,11 +164,17 @@ final class PersonalDataService {
                 var temperature_2m_min: [Double?]
                 var precipitation_probability_max: [Int?]
             }
+            struct Current: Decodable {
+                var temperature_2m: Double?
+                var weather_code: Int?
+            }
             var daily: Daily
+            var current: Current?
         }
         do {
             let (data, _) = try await URLSession.shared.data(from: url.url!)
-            let d = try JSONDecoder().decode(Response.self, from: data).daily
+            let response = try JSONDecoder().decode(Response.self, from: data)
+            let d = response.daily
             var days: [CalendarDay: PrintedWeather] = [:]
             for (i, iso) in d.time.enumerated() {
                 let parts = iso.split(separator: "-").compactMap { Int($0) }
@@ -174,6 +182,11 @@ final class PersonalDataService {
                       let lo = d.temperature_2m_min[i] else { continue }
                 days[CalendarDay(year: parts[0], month: parts[1], day: parts[2])] =
                     PrintedWeather(code: code, high: hi, low: lo, rain: d.precipitation_probability_max[i])
+            }
+            if let tz = TimeZone(identifier: location.timeZoneID) {
+                let today = CalendarDay(containing: Date(), in: tz)
+                days[today]?.now = response.current?.temperature_2m
+                days[today]?.nowCode = response.current?.weather_code
             }
             weatherCache = (location, Date(), days)
             return days
