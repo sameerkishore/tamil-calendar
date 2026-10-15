@@ -14,9 +14,11 @@ final class TearState {
     let origin: CGPoint
     let size: CGSize
 
-    /// How far the perforation has torn, left to right, 0…1.
+    /// How far the perforation has torn, 0…1.
     var progress: CGFloat = 0
-    /// How far the bottom-left corner has been lifted, folding the page over (sheet-local).
+    /// Dragging left folds the bottom-right corner and tears from the right.
+    var fromRight = false
+    /// How far the held bottom corner has been lifted, folding the page over (sheet-local).
     var fold: CGSize = .zero
     /// Once it's off: drift and tilt as it drops.
     var translation: CGSize = .zero
@@ -43,8 +45,9 @@ struct TornSheet {
     var tornFromLeft: Bool
 }
 
-/// One tear: drag across the sheet and it folds like a book page held by its bottom-left
-/// corner while the perforation tears left to right in step with the drag. Far enough across
+/// One tear: drag across the sheet and it folds like a book page held by a bottom corner while
+/// the perforation tears in step with the drag. Drag right to tear from the left (holding the
+/// bottom-left corner), or left to tear from the right (bottom-right corner). Far enough across
 /// and it comes off, unfolds and drops onto the desktop.
 @MainActor
 final class TearController {
@@ -110,13 +113,20 @@ final class TearController {
         }
         let w = state.size.width, h = state.size.height
 
-        // The corner follows the hand, within what a page can physically fold to.
-        let dx = min(max(mouse.x - grab.x, -0.1 * w), 1.5 * w)
-        let dy = min(max(mouse.y - grab.y, -1.1 * h), 0.1 * h)
-        state.fold = CGSize(width: dx, height: dy)
+        // Until the tear starts, the direction of the drag picks which corner is held.
+        let rawDx = mouse.x - grab.x
+        if state.progress == 0 && abs(rawDx) > 6 {
+            state.fromRight = rawDx < 0
+        }
+        let dir: CGFloat = state.fromRight ? -1 : 1
 
-        // The perforation tears left to right as you drag across; torn paper stays torn.
-        let progress = min(max(dx / (w * p.dragAcross), 0), 1)
+        // The corner follows the hand, within what a page can physically fold to.
+        let along = min(max(rawDx * dir, -0.1 * w), 1.5 * w)
+        let dy = min(max(mouse.y - grab.y, -1.1 * h), 0.1 * h)
+        state.fold = CGSize(width: along * dir, height: dy)
+
+        // The perforation tears as you drag across; torn paper stays torn.
+        let progress = min(max(along / (w * p.dragAcross), 0), 1)
         if progress > state.progress {
             if state.progress == 0 { SoundPlayer.shared.startTearing() }
             SoundPlayer.shared.setTearIntensity(Double(progress - state.progress) * 30)
@@ -193,7 +203,7 @@ final class TearController {
                          center: CGPoint(x: overlayFrame.minX + c.x, y: overlayFrame.maxY - c.y),
                          rotation: state.rotation,
                          scale: state.theme.scale,
-                         tornFromLeft: true))
+                         tornFromLeft: !state.fromRight))
         // Let the floating window appear before the overlay copy disappears.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.finish() }
     }
@@ -217,7 +227,7 @@ struct TearOverlayView: View {
         ZStack(alignment: .topLeading) {
             Color.clear
             FoldedSheet(context: state.context, layout: state.layout, size: state.size,
-                        fold: state.fold, torn: state.progress)
+                        fold: state.fold, torn: state.progress, fromRight: state.fromRight)
                 .rotationEffect(.radians(state.rotation))
                 .shadow(color: .black.opacity(state.isFree ? 0.3 : 0.15), radius: state.isFree ? 8 : 3,
                         y: state.isFree ? 5 : 2)
@@ -227,7 +237,7 @@ struct TearOverlayView: View {
     }
 }
 
-/// A sheet with its bottom-left corner lifted by `fold` and folded over like a book page.
+/// A sheet with a bottom corner lifted by `fold` and folded over like a book page.
 /// The fold line is the perpendicular bisector between where the corner was and where it is now;
 /// everything on the corner's side of it is reflected across, showing the back of the paper.
 struct FoldedSheet: View {
@@ -236,11 +246,12 @@ struct FoldedSheet: View {
     let size: CGSize
     var fold: CGSize
     var torn: CGFloat
+    var fromRight = false
 
     var body: some View {
-        let face = SheetFace(context: context, layout: layout, torn: torn, tornFromLeft: true)
+        let face = SheetFace(context: context, layout: layout, torn: torn, tornFromLeft: !fromRight)
         let paper = layout.paper.color
-        let corner = CGPoint(x: 0, y: size.height)
+        let corner = CGPoint(x: fromRight ? size.width : 0, y: size.height)
         let len = hypot(fold.width, fold.height)
         ZStack(alignment: .topLeading) {
             if len < 0.5 {

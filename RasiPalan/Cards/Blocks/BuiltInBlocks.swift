@@ -19,20 +19,23 @@ struct GregorianDateBlock: CardBlock {
             } else {
                 Text("\(c.gregorianMonth.ta) \(String(c.day.year))").font(theme.tamil(13))
             }
-            Text("\(c.day.day)")
-                .font(theme.numeral(104))
-                .scaleEffect(x: 0.84, y: 1)   // condensed, like calendar-press numerals
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.top, theme.u(-4))
             Group {
-                if theme.language == .tamil {
-                    Text(c.weekday.ta).font(theme.tamil(20, bold: true))
-                } else {
-                    Text(englishWeekdays[c.day.weekday - 1]).font(theme.latin(25, bold: true))
+                Text("\(c.day.day)")
+                    .font(theme.numeral(104))
+                    .scaleEffect(x: 0.84, y: 1)   // condensed, like calendar-press numerals
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.top, theme.u(-4))
+                Group {
+                    if theme.language == .tamil {
+                        Text(c.weekday.ta).font(theme.tamil(20, bold: true))
+                    } else {
+                        Text(englishWeekdays[c.day.weekday - 1]).font(theme.latin(25, bold: true))
+                    }
                 }
+                .padding(.top, theme.u(-10))
             }
-            .padding(.top, theme.u(-10))
+            .foregroundStyle(c.isRedLetter ? Ink.red : Ink.black)
         }
         .padding(.top, theme.u(12))
     }
@@ -51,13 +54,16 @@ struct TamilDateBlock: CardBlock {
         VStack(spacing: theme.u(2)) {
             theme.label(c.tamil.yearName, 13)
             theme.label(c.tamil.month, 16, bold: true)
-            Text("\(c.tamil.day)")
-                .font(theme.numeral(54))
-                .scaleEffect(x: 0.9, y: 1)
-                .padding(.vertical, theme.u(2))
-            theme.label(c.weekday, 21, bold: true)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            Group {
+                Text("\(c.tamil.day)")
+                    .font(theme.numeral(54))
+                    .scaleEffect(x: 0.9, y: 1)
+                    .padding(.vertical, theme.u(2))
+                theme.label(c.weekday, 21, bold: true)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(c.isRedLetter ? Ink.red : Ink.black)
         }
         .padding(.top, theme.u(12))
     }
@@ -215,20 +221,23 @@ struct BigDateBlock: CardBlock {
                 }
             }
             .foregroundStyle(Ink.red)
-            Text("\(c.day.day)")
-                .font(theme.numeral(size))
-                .scaleEffect(x: 0.84, y: 1)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.top, theme.u(-size * 0.06))
             Group {
-                if theme.language == .english {
-                    Text(c.weekday.en.uppercased()).font(theme.latin(22, bold: true))
-                } else {
-                    Text(c.weekday.ta).font(theme.tamil(24, bold: true))
+                Text("\(c.day.day)")
+                    .font(theme.numeral(size))
+                    .scaleEffect(x: 0.84, y: 1)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.top, theme.u(-size * 0.06))
+                Group {
+                    if theme.language == .english {
+                        Text(c.weekday.en.uppercased()).font(theme.latin(22, bold: true))
+                    } else {
+                        Text(c.weekday.ta).font(theme.tamil(24, bold: true))
+                    }
                 }
+                .padding(.top, theme.u(-size * 0.1))
             }
-            .padding(.top, theme.u(-size * 0.1))
+            .foregroundStyle(c.isRedLetter ? Ink.red : Ink.black)
         }
         .padding(.top, theme.u(14))
     }

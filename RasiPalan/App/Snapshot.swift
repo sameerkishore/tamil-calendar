@@ -33,7 +33,8 @@ enum Snapshot {
             let origin = CGPoint(x: theme.u(PadView.margin) + 60, y: theme.u(PadView.margin + PadView.gripHeight) + 40)
             let state = TearState(context: context, layout: model.layout, theme: theme, origin: origin, size: size)
             state.progress = tear
-            state.fold = CGSize(width: size.width * 0.8 * tear, height: -size.height * 0.35 * tear)
+            state.fromRight = defaults.bool(forKey: "snapshotFromRight")
+            state.fold = CGSize(width: size.width * 0.8 * tear * (state.fromRight ? -1 : 1), height: -size.height * 0.35 * tear)
             content = AnyView(ZStack(alignment: .topLeading) {
                 PadView(model: model, interactive: false).padding(.leading, 60).padding(.top, 40)
                 TearOverlayView(state: state).environment(\.cardTheme, theme)

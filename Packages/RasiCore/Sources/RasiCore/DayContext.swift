@@ -12,6 +12,8 @@ public struct DayContext: Hashable, Sendable {
     public var style: PanchangamStyle
     public var panchangam: Panchangam
     public var observances: [LocalizedText]
+    /// Sundays and holidays: the date prints in red.
+    public var isRedLetter: Bool
     public var kural: Kural
 
     public init(day: CalendarDay, location: GeoLocation, style: PanchangamStyle = .traditional) {
@@ -24,9 +26,11 @@ public struct DayContext: Hashable, Sendable {
         timings = DayTimings(day: day, sunrise: sunrise, sunset: sunset,
                              style: style, timeZone: location.timeZone)
         panchangam = Panchangam(day: day, location: location, sunrise: sunrise)
-        observances = Observances.list(day: day, tamil: tamil,
-                                       nextTamil: TamilCalendar.date(for: day.adding(days: 1), at: location, style: style),
-                                       panchangam: panchangam)
+        let found = Observances.list(day: day, tamil: tamil,
+                                     nextTamil: TamilCalendar.date(for: day.adding(days: 1), at: location, style: style),
+                                     panchangam: panchangam)
+        observances = found.items
+        isRedLetter = day.weekday == 1 || found.holiday
         kural = Kural.of(day)
     }
 
