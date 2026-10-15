@@ -15,6 +15,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let automaticLocationItem = NSMenuItem()
     private let chooseCityItem = NSMenuItem()
     private var styleItems: [PanchangamStyle: NSMenuItem] = [:]
+    private var languageItems: [CardLanguage: NSMenuItem] = [:]
+    private var sizeItems: [(CGFloat, NSMenuItem)] = []
+    private static let sizePresets: [(String, CGFloat)] = [
+        ("Tiny (50%)", 0.5), ("Small (75%)", 0.75), ("Normal (100%)", 1), ("Large (150%)", 1.5),
+        ("Extra Large (200%)", 2), ("Huge (250%)", 2.5),
+    ]
 
     init(app: AppController, pad: PadWindowController) {
         self.app = app
@@ -38,6 +44,24 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item("Show Pad", #selector(showPad)))
         menu.addItem(item(keepOnTopItem, "Keep Pad Above Windows", #selector(toggleKeepOnTop)))
         menu.addItem(item("Reset Pad Position", #selector(resetPosition)))
+
+        let sizeMenu = NSMenu()
+        sizeMenu.addItem(item("Bigger", #selector(bigger), key: "+"))
+        sizeMenu.addItem(item("Smaller", #selector(smaller), key: "-"))
+        sizeMenu.addItem(.separator())
+        for (title, scale) in Self.sizePresets {
+            let sizeItem = item(title, #selector(chooseSize(_:)))
+            sizeItem.representedObject = scale
+            sizeItems.append((scale, sizeItem))
+            sizeMenu.addItem(sizeItem)
+        }
+        sizeMenu.addItem(.separator())
+        let tip = NSMenuItem(title: "Tip: ⌘-scroll or pinch over the pad", action: nil, keyEquivalent: "")
+        tip.isEnabled = false
+        sizeMenu.addItem(tip)
+        let sizeRoot = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
+        sizeRoot.submenu = sizeMenu
+        menu.addItem(sizeRoot)
         menu.addItem(.separator())
 
         locationItem.isEnabled = false
@@ -59,6 +83,17 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let styleRoot = NSMenuItem(title: "Panchangam Style", action: nil, keyEquivalent: "")
         styleRoot.submenu = styleMenu
         menu.addItem(styleRoot)
+
+        let languageMenu = NSMenu()
+        for language in CardLanguage.allCases {
+            let languageItem = item(language.menuTitle, #selector(chooseLanguage(_:)))
+            languageItem.representedObject = language.rawValue
+            languageItems[language] = languageItem
+            languageMenu.addItem(languageItem)
+        }
+        let languageRoot = NSMenuItem(title: "Card Language", action: nil, keyEquivalent: "")
+        languageRoot.submenu = languageMenu
+        menu.addItem(languageRoot)
 
         #if DEBUG
         let debugMenu = NSMenu()
@@ -123,6 +158,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         for (style, styleItem) in styleItems {
             styleItem.state = app.state.style == style ? .on : .off
         }
+        for (language, languageItem) in languageItems {
+            languageItem.state = app.state.language == language ? .on : .off
+        }
+        for (scale, sizeItem) in sizeItems {
+            sizeItem.state = abs(pad.scale - scale) < 0.01 ? .on : .off
+        }
     }
 
     @objc private func showPad() { pad.show() }
@@ -141,6 +182,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if let raw = sender.representedObject as? String, let style = PanchangamStyle(rawValue: raw) {
             app.setStyle(style)
         }
+    }
+
+    @objc private func chooseLanguage(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let language = CardLanguage(rawValue: raw) {
+            app.setLanguage(language)
+        }
+    }
+
+    @objc private func bigger() { pad.setScale(pad.scale * 1.15) }
+    @objc private func smaller() { pad.setScale(pad.scale / 1.15) }
+
+    @objc private func chooseSize(_ sender: NSMenuItem) {
+        if let scale = sender.representedObject as? CGFloat { pad.setScale(scale) }
     }
 
     @objc private func previousDay() { app.shiftPadDay(by: -1) }

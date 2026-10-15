@@ -18,6 +18,11 @@ targets:
     platform: macOS
     sources:
       - path: RasiPalan
+        excludes:
+          - Resources/Layouts
+      - path: RasiPalan/Resources/Layouts
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: RasiCore
       - sdk: CoreLocation.framework

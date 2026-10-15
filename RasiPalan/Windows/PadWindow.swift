@@ -21,20 +21,49 @@ final class PadWindow: NSWindow {
     override var canBecomeKey: Bool { true }
 }
 
+/// Hosting view that turns ⌘-scroll and trackpad pinch into resize requests.
+final class PadHostingView: NSHostingView<PadView> {
+    var onScaleBy: ((CGFloat) -> Void)?
+
+    override func scrollWheel(with event: NSEvent) {
+        guard event.modifierFlags.contains(.command) else { return super.scrollWheel(with: event) }
+        let sensitivity: CGFloat = event.hasPreciseScrollingDeltas ? 0.004 : 0.04
+        onScaleBy?(exp(event.scrollingDeltaY * sensitivity))
+    }
+
+    override func magnify(with event: NSEvent) {
+        onScaleBy?(1 + event.magnification)
+    }
+}
+
 @MainActor
 final class PadWindowController: NSObject, NSWindowDelegate {
+    static let scaleRange: ClosedRange<CGFloat> = 0.5...2.5
+
     private let store: StateStore
+    private let model: PadModel
     private let window: PadWindow
+    private var scaleAtDragStart: CGFloat = 1
+    private var pendingSave: DispatchWorkItem?
 
     /// Sits just above the desktop icons and below every normal app window.
     private static let desktopLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
 
     init(store: StateStore, model: PadModel) {
         self.store = store
-        window = PadWindow(size: PadView.windowSize)
+        self.model = model
+        window = PadWindow(size: PadView.windowSize(scale: model.scale))
         super.init()
 
-        window.contentView = NSHostingView(rootView: PadView(model: model))
+        let host = PadHostingView(rootView: PadView(
+            model: model,
+            onResizeBegin: { [weak self] in self?.beginResize() },
+            onResize: { [weak self] distance in self?.resize(byDragging: distance) }))
+        host.onScaleBy = { [weak self] factor in
+            guard let self else { return }
+            setScale(self.model.scale * factor)
+        }
+        window.contentView = host
         window.delegate = self
         applyLevel()
 
@@ -61,6 +90,52 @@ final class PadWindowController: NSObject, NSWindowDelegate {
         window.level = store.state.keepOnTop ? .floating : Self.desktopLevel
     }
 
+    // MARK: - Size
+
+    var scale: CGFloat { model.scale }
+
+    /// Resizes the pad, keeping its top-left corner (the nail it hangs from) in place.
+    func setScale(_ newScale: CGFloat) {
+        let s = min(max(newScale, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
+        guard abs(s - model.scale) > 0.001 else { return }
+        let old = window.frame
+        let size = PadView.windowSize(scale: s)
+        model.scale = s
+        window.setFrame(CGRect(x: old.minX, y: old.maxY - size.height, width: size.width, height: size.height),
+                        display: true)
+        store.state.padScale = s
+        if let display = displayKey(window.screen) {
+            store.state.padScalesByDisplay[display] = s
+        }
+        scheduleSave()
+    }
+
+    private func beginResize() {
+        scaleAtDragStart = model.scale
+    }
+
+    private func resize(byDragging distance: CGFloat) {
+        let startWidth = PadView.sheetSize.width * scaleAtDragStart
+        setScale(scaleAtDragStart * (startWidth + distance) / startWidth)
+    }
+
+    private func displayKey(_ screen: NSScreen?) -> String? {
+        (screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.stringValue
+    }
+
+    func windowDidChangeScreen(_ notification: Notification) {
+        if let display = displayKey(window.screen), let saved = store.state.padScalesByDisplay[display] {
+            setScale(saved)
+        }
+    }
+
+    private func scheduleSave() {
+        pendingSave?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.store.save() }
+        pendingSave = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
     // MARK: - Positioning
 
     private func defaultOrigin() -> CGPoint {
@@ -71,11 +146,12 @@ final class PadWindowController: NSObject, NSWindowDelegate {
 
     /// True if at least the binding strip would be reachable on some display.
     private func isVisibleOnSomeScreen(origin: CGPoint) -> Bool {
+        let s = model.scale
         let frame = CGRect(origin: origin, size: window.frame.size)
-        let grip = CGRect(x: frame.minX + PadView.margin,
-                          y: frame.maxY - PadView.margin - PadView.gripHeight,
-                          width: PadView.sheetSize.width,
-                          height: PadView.gripHeight)
+        let grip = CGRect(x: frame.minX + PadView.margin * s,
+                          y: frame.maxY - (PadView.margin + PadView.gripHeight) * s,
+                          width: PadView.sheetSize.width * s,
+                          height: PadView.gripHeight * s)
         return NSScreen.screens.contains { $0.visibleFrame.intersection(grip).width > 60 }
     }
 
@@ -87,6 +163,6 @@ final class PadWindowController: NSObject, NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         store.state.padOrigin = window.frame.origin
-        store.save()
+        scheduleSave()
     }
 }

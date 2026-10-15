@@ -118,8 +118,8 @@ in templates:
 - Designed so Telugu / Kannada / Malayalam / Hindi packs can be added later (the panchangam
   terms are the same; only the month system and strings differ). We'll do Tamil and English first.
 
-Fonts are bundled: Noto Serif Tamil / Catamaran (Tamil), plus a condensed slab‑serif for
-English numerals.
+Fonts: macOS system fonts, so nothing is downloaded: Tamil Sangam MN for Tamil, and Superclarendon
+(condensed) for the letterpress numerals and English. Can be swapped for bundled OFL fonts later.
 
 ---
 
@@ -169,8 +169,8 @@ These are applied as a **paper style layer** on top of any template, so every te
 - **Ink imperfections**: slight **misregistration** (the red plate offset 0.5–1 px from black),
   ink spread/bleed on large type, small dropouts/speckles, uneven ink density.
 - **Halftone**: images and tints use a coarse dot screen, not smooth fills.
-- **Thin paper**: faint **show‑through** of the next day's big number from behind, visible as a
-  mirrored ghost.
+- **Thin paper**: faint **show‑through** of the next day's sheet underneath (not mirrored, since that
+  sheet faces you too).
 - **Physical details**: a perforated top edge with a jagged tear line on torn sheets, the
   bound/stapled stub at the top of the pad, a pad thickness that shrinks through the year, and slight
   curl at the bottom corners.

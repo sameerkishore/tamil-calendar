@@ -22,20 +22,30 @@ struct AppState: Codable {
     var location: GeoLocation?
     var locationSource: LocationSource
     var style: PanchangamStyle
+    var language: CardLanguage
+    /// Size of the pad, 0.5…2.5.
+    var padScale: CGFloat
+    /// Last size used on each display, so moving the pad between screens restores its size there.
+    var padScalesByDisplay: [String: CGFloat]
 
     static func fresh() -> AppState {
         AppState(padDay: .today(), padOrigin: nil, keepOnTop: false,
-                 location: nil, locationSource: .automatic, style: .traditional)
+                 location: nil, locationSource: .automatic, style: .traditional,
+                 language: .tamilEnglish, padScale: 1, padScalesByDisplay: [:])
     }
 
     init(padDay: CalendarDay, padOrigin: CGPoint?, keepOnTop: Bool,
-         location: GeoLocation?, locationSource: LocationSource, style: PanchangamStyle) {
+         location: GeoLocation?, locationSource: LocationSource, style: PanchangamStyle,
+         language: CardLanguage, padScale: CGFloat, padScalesByDisplay: [String: CGFloat]) {
         self.padDay = padDay
         self.padOrigin = padOrigin
         self.keepOnTop = keepOnTop
         self.location = location
         self.locationSource = locationSource
         self.style = style
+        self.language = language
+        self.padScale = padScale
+        self.padScalesByDisplay = padScalesByDisplay
     }
 
     // Tolerant decoding: keys added in later versions fall back to defaults.
@@ -48,6 +58,9 @@ struct AppState: Codable {
         location = try c.decodeIfPresent(GeoLocation.self, forKey: .location)
         locationSource = (try? c.decodeIfPresent(LocationSource.self, forKey: .locationSource)) ?? defaults.locationSource
         style = (try? c.decodeIfPresent(PanchangamStyle.self, forKey: .style)) ?? defaults.style
+        language = (try? c.decodeIfPresent(CardLanguage.self, forKey: .language)) ?? defaults.language
+        padScale = try c.decodeIfPresent(CGFloat.self, forKey: .padScale) ?? defaults.padScale
+        padScalesByDisplay = try c.decodeIfPresent([String: CGFloat].self, forKey: .padScalesByDisplay) ?? [:]
     }
 }
 

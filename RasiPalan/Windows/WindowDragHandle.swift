@@ -17,3 +17,49 @@ struct WindowDragHandle: NSViewRepresentable {
         }
     }
 }
+
+/// Corner grip that reports how far it has been dragged, in screen points, diagonally
+/// (right or down grows). Uses screen coordinates because the window resizes under it mid-drag.
+struct ResizeHandle: NSViewRepresentable {
+    let onBegin: () -> Void
+    let onDrag: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = HandleView()
+        view.onBegin = onBegin
+        view.onDrag = onDrag
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let view = nsView as? HandleView else { return }
+        view.onBegin = onBegin
+        view.onDrag = onDrag
+    }
+
+    private final class HandleView: NSView {
+        var onBegin: () -> Void = {}
+        var onDrag: (CGFloat) -> Void = { _ in }
+        private var start: CGPoint = .zero
+
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func mouseDown(with event: NSEvent) {
+            start = NSEvent.mouseLocation
+            onBegin()
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            let p = NSEvent.mouseLocation
+            onDrag(((p.x - start.x) + (start.y - p.y)) / 2)
+        }
+
+        override func resetCursorRects() {
+            if #available(macOS 15, *) {
+                addCursorRect(bounds, cursor: .frameResize(position: .bottomRight, directions: .all))
+            } else {
+                addCursorRect(bounds, cursor: .crosshair)
+            }
+        }
+    }
+}

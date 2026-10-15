@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Debug helper: `RasiPalan -snapshot /path/out.png` renders the pad to a PNG and quits,
 /// so the visuals can be checked without screen-recording access.
-/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`.
+/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`, `-snapshotLanguage english`, `-snapshotScale 2`.
 @MainActor
 enum Snapshot {
     static func renderPad(state: AppState, to url: URL) {
@@ -17,8 +17,11 @@ enum Snapshot {
         }
         let style = defaults.string(forKey: "snapshotStyle").flatMap(PanchangamStyle.init(rawValue:)) ?? state.style
         let context = DayContext(day: day, location: state.location ?? .fallback(for: .current), style: style)
+        let language = defaults.string(forKey: "snapshotLanguage").flatMap(CardLanguage.init(rawValue:)) ?? state.language
+        let scale = CGFloat(defaults.double(forKey: "snapshotScale").nonZero ?? 1)
 
-        let renderer = ImageRenderer(content: PadView(model: PadModel(context: context), interactive: false)
+        let model = PadModel(context: context, language: language, scale: scale)
+        let renderer = ImageRenderer(content: PadView(model: model, interactive: false)
             .background(Color(white: 0.85)))
         renderer.scale = 2
         guard let image = renderer.cgImage,
@@ -26,5 +29,8 @@ enum Snapshot {
         else { return }
         try? data.write(to: url)
     }
+}
+private extension Double {
+    var nonZero: Double? { self == 0 ? nil : self }
 }
 #endif

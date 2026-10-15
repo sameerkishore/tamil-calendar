@@ -87,7 +87,7 @@ public enum Names {
     ]
 
     public static let rahuKalam = LocalizedText(ta: "ராகு", en: "Rahu")
-    public static let yamagandam = LocalizedText(ta: "எமகண்டம்", en: "Yamagandam")
+    public static let yamagandam = LocalizedText(ta: "எமகண்டம்", en: "Yama")
     public static let kuligai = LocalizedText(ta: "குளிகை", en: "Kuligai")
     public static let soolam = LocalizedText(ta: "சூலம்", en: "Soolam")
     public static let sunrise = LocalizedText(ta: "சூரிய உதயம்", en: "Sunrise")

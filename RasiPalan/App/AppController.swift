@@ -7,9 +7,24 @@ import RasiCore
 @Observable
 final class PadModel {
     var context: DayContext
+    /// Tomorrow's sheet, faintly visible through the paper.
+    var nextContext: DayContext
+    var layout: CardLayout
+    var language: CardLanguage
+    var scale: CGFloat
 
-    init(context: DayContext) {
+    init(context: DayContext, layout: CardLayout = .classic, language: CardLanguage = .tamilEnglish, scale: CGFloat = 1) {
         self.context = context
+        nextContext = context.next()
+        self.layout = layout
+        self.language = language
+        self.scale = scale
+    }
+}
+
+extension DayContext {
+    func next() -> DayContext {
+        DayContext(day: day.adding(days: 1), location: location, style: style)
     }
 }
 
@@ -35,7 +50,8 @@ final class AppController {
             store.state.locationSource = .timeZone
             store.save()
         }
-        model = PadModel(context: Self.context(for: store.state))
+        model = PadModel(context: Self.context(for: store.state), language: store.state.language,
+                         scale: store.state.padScale)
     }
 
     func start() {
@@ -59,6 +75,8 @@ final class AppController {
     private func commit() {
         store.save()
         model.context = Self.context(for: store.state)
+        model.nextContext = model.context.next()
+        model.language = store.state.language
     }
 
     // MARK: - Location
@@ -114,6 +132,11 @@ final class AppController {
     }
 
     // MARK: - Settings
+
+    func setLanguage(_ language: CardLanguage) {
+        store.state.language = language
+        commit()
+    }
 
     func setStyle(_ style: PanchangamStyle) {
         store.state.style = style
