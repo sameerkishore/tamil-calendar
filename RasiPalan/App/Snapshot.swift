@@ -135,6 +135,19 @@ enum Snapshot {
             }.environment(\.cardTheme, theme).padding(20))
         }
 
+        // -snapshotGallery 1: the Templates & Board window at its default width and its narrowest.
+        if defaults.double(forKey: "snapshotGallery") > 0 {
+            content = AnyView(HStack(alignment: .top, spacing: 20) {
+                ForEach([900, 560] as [CGFloat], id: \.self) { width in
+                    TemplateGalleryView(model: model, chooseLayout: { _ in }, chooseBoard: { _ in },
+                                        choosePicture: {}, customize: {}, adjustPicture: {},
+                                        customLayout: { state.customLayout }, scrolls: false)
+                        .frame(width: width)
+                        .background(Color.white)
+                }
+            }.padding(20))
+        }
+
         // -snapshotBlank 1: everything unchecked, next to a sheet with only a note and a Western horoscope.
         if defaults.double(forKey: "snapshotBlank") > 0 {
             let blank = LayoutDraft(from: .classic)

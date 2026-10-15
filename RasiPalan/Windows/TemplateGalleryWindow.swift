@@ -11,10 +11,11 @@ final class TemplateGalleryWindowController {
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
          choosePicture: @escaping () -> Void, customize: @escaping () -> Void, adjustPicture: @escaping () -> Void,
          customLayout: @escaping () -> CardLayout?) {
-        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 760, height: 640),
-                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 900, height: 680),
+                          styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
         window.isReleasedWhenClosed = false
+        window.contentMinSize = CGSize(width: 560, height: 420)
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
             model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
             customize: customize, adjustPicture: adjustPicture, customLayout: customLayout))
@@ -27,7 +28,7 @@ final class TemplateGalleryWindowController {
     }
 }
 
-private struct TemplateGalleryView: View {
+struct TemplateGalleryView: View {
     let model: PadModel
     let chooseLayout: (String) -> Void
     let chooseBoard: (BoardStyle) -> Void
@@ -35,17 +36,30 @@ private struct TemplateGalleryView: View {
     let customize: () -> Void
     let adjustPicture: () -> Void
     let customLayout: () -> CardLayout?
+    /// Off only for debug snapshots, which can't render a scroll view.
+    var scrolls = true
+
+    /// Sheet previews wrap onto more rows when the window is narrow.
+    private let sheetScale: CGFloat = 0.52
+    private var columns: [GridItem] {
+        let width = PadView.sheetSize.width * sheetScale
+        return [GridItem(.adaptive(minimum: width, maximum: width), spacing: 14, alignment: .top)]
+    }
 
     var body: some View {
+        if scrolls { ScrollView { content } } else { content }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Sheet design").font(.title3.bold())
                 Spacer()
                 Button("Customize Sheet…", action: customize)
             }
-            HStack(alignment: .top, spacing: 14) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                 ForEach(CardLayout.all + [customLayout()].compactMap { $0 }) { layout in
-                    let theme = CardTheme(scale: 0.52, language: model.language, perforations: model.perforations,
+                    let theme = CardTheme(scale: sheetScale, language: model.language, perforations: model.perforations,
                                           paper: layout.paper)
                     Button { chooseLayout(layout.id) } label: {
                         VStack(alignment: .leading, spacing: 6) {
@@ -68,7 +82,9 @@ private struct TemplateGalleryView: View {
             Text("Backing board").font(.title3.bold())
             Text("Hang the pad on a printed board, like the one on the wall at home.")
                 .font(.callout).foregroundStyle(.secondary)
-            HStack(alignment: .top, spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: BoardThumbnail.width, maximum: BoardThumbnail.width),
+                                         spacing: 14, alignment: .top)],
+                      alignment: .leading, spacing: 14) {
                 ForEach(BoardStyle.allCases, id: \.self) { style in
                     Button { chooseBoard(style) } label: {
                         VStack(spacing: 6) {
@@ -90,7 +106,7 @@ private struct TemplateGalleryView: View {
             }
         }
         .padding(20)
-        .frame(width: 760)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func selection(_ selected: Bool) -> some View {
@@ -107,8 +123,11 @@ private struct BoardThumbnail: View {
     var crop = PhotoCrop()
     let year: Int
 
+    static let scale: CGFloat = 0.25
+    static var width: CGFloat { BoardStyle.temple.size.width * scale }
+
     var body: some View {
-        let scale: CGFloat = 0.25
+        let scale = Self.scale
         let theme = CardTheme(scale: scale)
         let content = PadView.contentSize(board: style)
         let origin = PadView.padOrigin(board: style)
