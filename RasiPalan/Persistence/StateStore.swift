@@ -54,6 +54,7 @@ struct AppState: Codable {
     /// Calendars whose events are printed; nil means all of them.
     var eventCalendarIDs: [String]?
     var soundEnabled = true
+    var binColor: BinColor = .teal
     var physics = TearPhysics()
 
     static func fresh() -> AppState {
@@ -105,6 +106,7 @@ struct AppState: Codable {
         paperChoice = (try? c.decodeIfPresent(PaperChoice.self, forKey: .paperChoice)) ?? .template
         eventCalendarIDs = try c.decodeIfPresent([String].self, forKey: .eventCalendarIDs)
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
+        binColor = (try? c.decodeIfPresent(BinColor.self, forKey: .binColor)) ?? .teal
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }
 }

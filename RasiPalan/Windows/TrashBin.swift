@@ -20,10 +20,39 @@ struct BinTarget {
     }
 }
 
+/// The basket's plastic, chosen in Settings › Desktop.
+enum BinColor: String, Codable, CaseIterable {
+    case teal, red, blue, green, mustard, charcoal
+
+    var title: String {
+        switch self {
+        case .teal: "Teal"
+        case .red: "Red"
+        case .blue: "Blue"
+        case .green: "Green"
+        case .mustard: "Mustard"
+        case .charcoal: "Charcoal"
+        }
+    }
+
+    /// Mid tone, shadowed side and highlight of the moulded plastic.
+    var plastic: (base: Color, dark: Color, light: Color) {
+        switch self {
+        case .teal: (Color(red: 0.05, green: 0.42, blue: 0.43), Color(red: 0.02, green: 0.24, blue: 0.25), Color(red: 0.25, green: 0.62, blue: 0.62))
+        case .red: (Color(red: 0.70, green: 0.16, blue: 0.13), Color(red: 0.42, green: 0.07, blue: 0.06), Color(red: 0.90, green: 0.38, blue: 0.32))
+        case .blue: (Color(red: 0.12, green: 0.30, blue: 0.62), Color(red: 0.05, green: 0.15, blue: 0.36), Color(red: 0.36, green: 0.54, blue: 0.84))
+        case .green: (Color(red: 0.22, green: 0.50, blue: 0.20), Color(red: 0.10, green: 0.28, blue: 0.10), Color(red: 0.46, green: 0.72, blue: 0.40))
+        case .mustard: (Color(red: 0.84, green: 0.62, blue: 0.12), Color(red: 0.55, green: 0.38, blue: 0.04), Color(red: 0.97, green: 0.82, blue: 0.40))
+        case .charcoal: (Color(red: 0.26, green: 0.27, blue: 0.29), Color(red: 0.12, green: 0.12, blue: 0.13), Color(red: 0.48, green: 0.49, blue: 0.52))
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class BinModel {
     var count = 0
+    var color: BinColor = .teal
     var isEmptying = false
     /// Bumps each time a ball lands in, to give the bin a little jolt.
     var landings = 0
@@ -47,6 +76,7 @@ final class TrashBinController {
         self.scale = scale
         self.sprites = sprites
         model.count = store.state.binCount
+        model.color = store.state.binColor
         let size = Self.windowSize(scale: scale)
         window = NSWindow(contentRect: CGRect(origin: .zero, size: size),
                           styleMask: [.borderless], backing: .buffered, defer: false)
@@ -124,6 +154,12 @@ final class TrashBinController {
 
     func setLevel(_ level: NSWindow.Level) { window.level = level }
 
+    func setColor(_ color: BinColor) {
+        model.color = color
+        store.state.binColor = color
+        store.save()
+    }
+
     func bringOnScreen() {
         if window.isVisible, ScreenFit.bringOnScreen(window) {
             store.state.binCenter = CGPoint(x: window.frame.midX, y: window.frame.midY)
@@ -176,8 +212,8 @@ final class TrashBinMenuTarget: NSObject {
     @objc func clearDesktop() { bin?.onClearDesktop() }
 }
 
-/// A cheap plastic waste-paper basket: tapered, woven, teal like the calendar's band, seen
-/// slightly from above so the heap inside shows as it fills.
+/// A cheap plastic waste-paper basket: tapered, woven, teal like the calendar's band unless
+/// recoloured in Settings, seen slightly from above so the heap inside shows as it fills.
 struct TrashBinView: View {
     let model: BinModel
     let scale: CGFloat
@@ -189,10 +225,6 @@ struct TrashBinView: View {
     nonisolated static let baseRatio: CGFloat = 0.74
     static let groundGap: CGFloat = 8
 
-    private static let plastic = Color(red: 0.05, green: 0.42, blue: 0.43)
-    private static let plasticDark = Color(red: 0.02, green: 0.24, blue: 0.25)
-    private static let plasticLight = Color(red: 0.25, green: 0.62, blue: 0.62)
-
     /// Where each ball sits in the heap: x across the mouth (0…1), and how high it sits.
     private static let heap: [(x: CGFloat, lift: CGFloat)] = [
         (0.35, 0.00), (0.62, 0.02), (0.48, 0.10), (0.25, 0.18), (0.72, 0.20),
@@ -203,6 +235,7 @@ struct TrashBinView: View {
         let w = Self.size.width * scale, h = Self.size.height * scale
         let rim = Self.rimHeight * scale
         let ball = w * 0.4
+        let (plastic, plasticDark, plasticLight) = model.color.plastic
 
         ZStack(alignment: .bottom) {
             // Shadow on the floor.
@@ -213,7 +246,7 @@ struct TrashBinView: View {
 
             ZStack(alignment: .top) {
                 // Inside of the basket, seen through the mouth.
-                Ellipse().fill(Self.plasticDark)
+                Ellipse().fill(plasticDark)
                     .frame(width: w, height: rim)
 
                 // The heap: deeper balls are hidden behind the front wall; as it fills they rise
@@ -236,17 +269,17 @@ struct TrashBinView: View {
 
                 // Front wall, drawn over the hidden part of the heap.
                 BinBody(baseRatio: Self.baseRatio, rim: rim)
-                    .fill(LinearGradient(colors: [Self.plasticDark, Self.plastic, Self.plasticLight, Self.plastic, Self.plasticDark],
+                    .fill(LinearGradient(colors: [plasticDark, plastic, plasticLight, plastic, plasticDark],
                                          startPoint: .leading, endPoint: .trailing))
                     .overlay(
                         WovenPattern(scale: scale)
-                            .stroke(Self.plasticDark.opacity(0.75), lineWidth: 1.6 * scale)
+                            .stroke(plasticDark.opacity(0.75), lineWidth: 1.6 * scale)
                             .clipShape(BinBody(baseRatio: Self.baseRatio, rim: rim)))
                     .frame(width: w, height: h)
 
                 // Rolled rim.
                 Ellipse()
-                    .stroke(LinearGradient(colors: [Self.plasticLight, Self.plastic], startPoint: .top, endPoint: .bottom),
+                    .stroke(LinearGradient(colors: [plasticLight, plastic], startPoint: .top, endPoint: .bottom),
                             lineWidth: 4 * scale)
                     .frame(width: w, height: rim)
             }

@@ -318,6 +318,8 @@ final class AppController {
         model.signNames = names
     }
 
+    func setBinColor(_ color: BinColor) { trashBin?.setColor(color) }
+
     func setPaperChoice(_ choice: PaperChoice) {
         store.state.paperChoice = choice
         store.save()

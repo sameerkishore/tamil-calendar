@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Debug helper: `RasiPalan -snapshot /path/out.png` renders the pad to a PNG and quits,
 /// so the visuals can be checked without screen-recording access.
-/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`, `-snapshotLanguage english`, `-snapshotScale 2`, `-snapshotPaper dark`.
+/// Optional: `-snapshotDay 2026-09-18`, `-snapshotStyle precise`, `-snapshotLanguage english`, `-snapshotScale 2`, `-snapshotPaper dark`, `-snapshotBinColors 1`.
 @MainActor
 enum Snapshot {
     static func renderPad(state: AppState, to url: URL) {
@@ -62,6 +62,20 @@ enum Snapshot {
                     let bin = BinModel()
                     let _ = bin.count = n
                     TrashBinView(model: bin, scale: 1.5, sprites: sprites)
+                        .frame(width: binSize.width, height: binSize.height)
+                }
+            })
+        }
+
+        // -snapshotBinColors 1: a part-full bin in each colour.
+        if defaults.double(forKey: "snapshotBinColors") > 0 {
+            let sprites = BallSprites.make(model: model)
+            let binSize = TrashBinController.windowSize(scale: 1)
+            content = AnyView(HStack(spacing: 0) {
+                ForEach(BinColor.allCases, id: \.self) { color in
+                    let bin = BinModel()
+                    let _ = (bin.count = 4, bin.color = color)
+                    TrashBinView(model: bin, scale: 1, sprites: sprites)
                         .frame(width: binSize.width, height: binSize.height)
                 }
             })

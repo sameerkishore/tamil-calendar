@@ -31,6 +31,7 @@ private struct SettingsView: View {
     @State private var style: PanchangamStyle
     @State private var shortcut: FrontShortcut
     @State private var sound: Bool
+    @State private var binColor: BinColor
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
     @State private var myRasi: Int?
@@ -50,6 +51,7 @@ private struct SettingsView: View {
         _signs = State(initialValue: app.state.signNames)
         _chosenCalendars = State(initialValue: app.state.eventCalendarIDs.map(Set.init))
         _sound = State(initialValue: app.state.soundEnabled)
+        _binColor = State(initialValue: app.state.binColor)
         _openAtLogin = State(initialValue: app.opensAtLogin)
     }
 
@@ -149,6 +151,25 @@ private struct SettingsView: View {
                 }
                 LabeledContent("Torn sheets and paper balls") {
                     Button("Clear Desktop") { app.clearDesktop() }
+                }
+                LabeledContent("Bin color") {
+                    HStack(spacing: 8) {
+                        ForEach(BinColor.allCases, id: \.self) { color in
+                            Button {
+                                binColor = color
+                                app.setBinColor(color)
+                            } label: {
+                                Circle().fill(color.plastic.base)
+                                    .frame(width: 18, height: 18)
+                                    .padding(3)
+                                    .overlay(Circle().strokeBorder(binColor == color ? Color.accentColor : .clear, lineWidth: 2))
+                            }
+                            .buttonStyle(.plain)
+                            .help(color.title)
+                            .accessibilityLabel(color.title)
+                            .accessibilityAddTraits(binColor == color ? .isSelected : [])
+                        }
+                    }
                 }
             }
 
