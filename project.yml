@@ -7,6 +7,9 @@ options:
 packages:
   RasiCore:
     path: Packages/RasiCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -25,6 +28,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: RasiCore
+      - package: Sparkle
       - sdk: CoreLocation.framework
       - sdk: EventKit.framework
     info:
@@ -36,6 +40,9 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.lifestyle
         NSPrincipalClass: NSApplication
+        SUFeedURL: https://github.com/sameerkishore/tamil-calendar/releases/latest/download/appcast.xml
+        SUPublicEDKey: YHNDHl8enzvxqeIh7ywiLaFBh7fHzMm5pkG8i4YG16M=
+        SUEnableAutomaticChecks: true
         NSRemindersFullAccessUsageDescription: Tamil Calendar prints the reminders due on each sheet's day. It only reads them.
         NSRemindersUsageDescription: Tamil Calendar prints the reminders due on each sheet's day. It only reads them.
         NSCalendarsFullAccessUsageDescription: Tamil Calendar prints the events on each sheet's day from the calendars you choose. It only reads them.

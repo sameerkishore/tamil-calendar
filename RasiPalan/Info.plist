@@ -40,5 +40,11 @@
 	<string>Tamil Calendar prints the reminders due on each sheet's day. It only reads them.</string>
 	<key>NSRemindersUsageDescription</key>
 	<string>Tamil Calendar prints the reminders due on each sheet's day. It only reads them.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/sameerkishore/tamil-calendar/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>YHNDHl8enzvxqeIh7ywiLaFBh7fHzMm5pkG8i4YG16M=</string>
 </dict>
 </plist>

@@ -1,5 +1,6 @@
 import AppKit
 import RasiCore
+import Sparkle
 
 /// The menu-bar icon and its short menu; everything else lives in Settings. Also installs the
 /// app's hidden main menu, so standard shortcuts (⌘, ⌘Q ⌘W, copy/paste) work in its windows.
@@ -8,6 +9,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let app: AppController
     private let pad: PadWindowController
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    /// Sparkle: checks the GitHub appcast daily and offers Install and Relaunch.
+    private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     private let dateItem = NSMenuItem()
     private let tamilDateItem = NSMenuItem()
@@ -49,6 +52,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         #endif
 
         menu.addItem(item(NSMenuItem(), "About Tamil Calendar", #selector(showAbout)))
+        menu.addItem(item(NSMenuItem(), "Check for Updates…", #selector(checkForUpdates)))
         menu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
         menu.addItem(item(NSMenuItem(), "Quit Tamil Calendar", #selector(quit), key: "q"))
         statusItem.menu = menu
@@ -71,6 +75,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         let appMenu = NSMenu()
         appMenu.addItem(item(NSMenuItem(), "About Tamil Calendar", #selector(showAbout)))
+        appMenu.addItem(item(NSMenuItem(), "Check for Updates…", #selector(checkForUpdates)))
         appMenu.addItem(.separator())
         appMenu.addItem(item(NSMenuItem(), "Settings…", #selector(showSettings), key: ","))
         appMenu.addItem(.separator())
@@ -125,6 +130,12 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     @objc private func showGallery() { app.showGallery() }
     @objc private func clearDesktop() { app.clearDesktop() }
     @objc private func showSettings() { app.showSettings() }
+
+    /// Menu-bar apps aren't frontmost, so bring Sparkle's window forward with us.
+    @objc private func checkForUpdates() {
+        NSApp.activate()
+        updater.checkForUpdates(nil)
+    }
 
     /// The standard About panel; the copyright line comes from Info.plist.
     @objc private func showAbout() {
