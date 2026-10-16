@@ -17,6 +17,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let behindItem = NSMenuItem()
     private let frontItem = NSMenuItem()
     private let putBackItem = NSMenuItem()
+    private let todayItem = NSMenuItem()
 
     init(app: AppController, pad: PadWindowController) {
         self.app = app
@@ -24,8 +25,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         super.init()
 
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "calendar", accessibilityDescription: "Tamil Calendar")
-            button.image?.isTemplate = true
+            button.image = Self.statusIcon()
         }
 
         let menu = NSMenu()
@@ -36,6 +36,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(item(putBackItem, "Put Sheet Back", #selector(putSheetBack), key: "z"))
+        menu.addItem(item(todayItem, "Back to Today", #selector(backToToday), key: "t"))
         menu.addItem(item(frontItem, "Calendar in Front", #selector(toggleFront)))
         menu.addItem(item(NSMenuItem(), "Templates & Board…", #selector(showGallery)))
         menu.addItem(item(NSMenuItem(), "Clear Desktop", #selector(clearDesktop)))
@@ -45,7 +46,6 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let debugMenu = NSMenu()
         debugMenu.addItem(item(NSMenuItem(), "Previous Day", #selector(previousDay), key: "["))
         debugMenu.addItem(item(NSMenuItem(), "Next Day", #selector(nextDay), key: "]"))
-        debugMenu.addItem(item(NSMenuItem(), "Back to Today", #selector(backToToday)))
         let debugRoot = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
         debugRoot.submenu = debugMenu
         menu.addItem(debugRoot)
@@ -58,6 +58,38 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
 
         installMainMenu()
+    }
+
+    /// The app icon redrawn as a template image (band, sheet outline and த), so the menu bar
+    /// tints it for light, dark and highlighted states. Drawn on demand, crisp at any scale.
+    private static func statusIcon() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            let sheet = NSRect(x: 1.5, y: 1.5, width: 15, height: 15)
+            let radius: CGFloat = 3.5
+            let band: CGFloat = 4
+            NSColor.black.set()
+
+            let outline = NSBezierPath(roundedRect: sheet.insetBy(dx: 0.6, dy: 0.6), xRadius: radius - 0.6, yRadius: radius - 0.6)
+            outline.lineWidth = 1.2
+            outline.stroke()
+
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: sheet, xRadius: radius, yRadius: radius).addClip()
+            NSRect(x: sheet.minX, y: sheet.maxY - band, width: sheet.width, height: band).fill()
+            NSGraphicsContext.restoreGraphicsState()
+
+            let font = NSFont(name: "TamilSangamMN-Bold", size: 10) ?? .boldSystemFont(ofSize: 10)
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: "த", attributes: [.font: font]))
+            let glyph = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+            let paper = NSRect(x: sheet.minX, y: sheet.minY, width: sheet.width, height: sheet.height - band)
+            let ctx = NSGraphicsContext.current!.cgContext
+            ctx.textPosition = CGPoint(x: paper.midX - glyph.midX, y: paper.midY - glyph.midY)
+            CTLineDraw(line, ctx)
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Tamil Calendar"
+        return image
     }
 
     private func item(_ item: NSMenuItem, _ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
@@ -115,6 +147,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         behindItem.title = behind == 1 ? "1 day behind today: time to tear!" : "\(behind) days behind today: time to tear!"
 
         putBackItem.isHidden = !app.canPutSheetBack
+        todayItem.isHidden = ctx.day == .today()
         frontItem.state = app.state.keepOnTop ? .on : .off
         // Show the system-wide shortcut beside it (pressing it here works too).
         if let mods = app.state.frontShortcut.menuModifiers {
