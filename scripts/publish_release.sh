@@ -13,6 +13,9 @@ app="build/Build/Products/Release/Tamil Calendar.app"
 short=$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")
 build=$(plutil -extract CFBundleVersion raw "$app/Contents/Info.plist")
 [[ "$short" == "$tag" ]] || { echo "App version is $short, not $tag; run bump_version.sh first." >&2; exit 1; }
+# Releases must carry the stable signature, or users get the permission prompts again.
+codesign -d -r- "$app" 2>&1 | grep -q 'certificate root = H"d3f87aeb17643d4dfa9aaf9286145977334f474c"' \
+  || { echo "App isn't signed with the Tamil Calendar Signing certificate." >&2; exit 1; }
 
 dmg="build/Tamil-Calendar-$tag.dmg"
 mv "build/Tamil Calendar.dmg" "$dmg"

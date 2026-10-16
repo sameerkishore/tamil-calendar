@@ -55,7 +55,9 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.rasipalan.RasiPalan
         PRODUCT_NAME: Tamil Calendar
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CODE_SIGN_IDENTITY: "-"
+        # Self-signed cert in the login Keychain: a stable signature keeps Calendar/Reminders/Location
+        # permissions across updates (ad-hoc signatures change every build). Back it up with the Sparkle key.
+        CODE_SIGN_IDENTITY: "Tamil Calendar Signing"
         CODE_SIGN_STYLE: Manual
         DEVELOPMENT_TEAM: ""
         ENABLE_HARDENED_RUNTIME: NO
