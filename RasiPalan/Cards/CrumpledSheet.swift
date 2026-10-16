@@ -9,6 +9,7 @@ struct CrumpledSheet: View {
     var extras: DayExtras?
     var tornFromLeft = true
     var t: CGFloat
+    var wear: Float = 0
     @Environment(\.cardTheme) private var theme
 
     /// Ball diameter as a share of sheet width (lumps can poke out a little further).
@@ -16,7 +17,7 @@ struct CrumpledSheet: View {
 
     var body: some View {
         let size = CGSize(width: theme.u(PadView.sheetSize.width), height: theme.u(PadView.sheetSize.height))
-        SheetFace(context: context, layout: layout, extras: extras, torn: 1, tornFromLeft: tornFromLeft)
+        SheetFace(context: context, layout: layout, extras: extras, torn: 1, tornFromLeft: tornFromLeft, wear: wear)
             .layerEffect(ShaderLibrary.crumple(.float2(size), .float(t), .float(theme.scale),
                                                .float(PrintedSheet<EmptyView>.seed(for: context.day))),
                          maxSampleOffset: size)

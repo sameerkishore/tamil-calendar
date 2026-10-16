@@ -13,6 +13,8 @@ struct SheetFace: View {
     /// How much of the top edge has been torn (0…1), and from which side.
     var torn: CGFloat = 0
     var tornFromLeft = true
+    /// How long it was left on the pad: 0 = fresh … 1 = a month, crumpled and yellowed.
+    var wear: Float = 0
     @Environment(\.cardTheme) private var theme
 
     var size: CGSize {
@@ -33,6 +35,10 @@ struct SheetFace: View {
                     .frame(width: size.width, height: size.height, alignment: .top)
             }
         }
+        .layerEffect(ShaderLibrary.aged(.float2(size), .float(theme.scale),
+                                        .float(PrintedSheet<EmptyView>.seed(for: context.day)),
+                                        .float(wear), .color(theme.paper.color)),
+                     maxSampleOffset: CGSize(width: theme.u(80), height: theme.u(80)), isEnabled: wear > 0)
         .overlay(alignment: .top) {
             if torn < 1 {
                 PerforationRow(count: theme.perforations, torn: torn, fromLeft: tornFromLeft)

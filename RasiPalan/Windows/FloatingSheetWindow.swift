@@ -17,6 +17,8 @@ struct FloatingSheetRecord: Codable, Identifiable {
     var tornFromLeft: Bool = true
     /// Reminders, events and weather as printed when the sheet was torn off.
     var extras: DayExtras?
+    /// How worn it was when torn off (see `SheetFace.wear`).
+    var wear: Float?
 
     var context: DayContext { DayContext(day: day, location: location, style: style) }
 }
@@ -45,7 +47,8 @@ final class FloatingSheetsController {
         let record = FloatingSheetRecord(day: sheet.context.day, location: sheet.context.location,
                                          style: sheet.context.style, center: sheet.center,
                                          rotation: sheet.rotation, scale: sheet.scale,
-                                         tornFromLeft: sheet.tornFromLeft, extras: sheet.extras)
+                                         tornFromLeft: sheet.tornFromLeft, extras: sheet.extras,
+                                         wear: sheet.wear > 0 ? sheet.wear : nil)
         store.state.floatingSheets.append(record)
         store.save()
         open(record, level: level)
@@ -199,10 +202,10 @@ struct FloatingSheetView: View {
         Group {
             if t > 0 {
                 CrumpledSheet(context: record.context, layout: model.layout, extras: record.extras,
-                              tornFromLeft: record.tornFromLeft, t: t)
+                              tornFromLeft: record.tornFromLeft, t: t, wear: record.wear ?? 0)
             } else {
                 SheetFace(context: record.context, layout: model.layout, extras: record.extras, torn: 1,
-                          tornFromLeft: record.tornFromLeft)
+                          tornFromLeft: record.tornFromLeft, wear: record.wear ?? 0)
             }
         }
             .rotationEffect(.radians(record.rotation + crumple.spin))

@@ -15,6 +15,9 @@ enum LocationSource: String, Codable {
 struct AppState: Codable {
     /// The date on the top sheet of the pad. Only tearing moves it forward.
     var padDay: CalendarDay
+    /// When the top sheet was uncovered (torn to, put back, or jumped to); nil = its own midnight.
+    /// The longer it hangs past that, the more worn it looks.
+    var topSince: Date?
     /// Bottom-left of the pad window in screen coordinates; nil means "use the default spot".
     var padOrigin: CGPoint?
     /// Raise the pad above normal windows instead of sitting on the desktop.
@@ -82,6 +85,7 @@ struct AppState: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = AppState.fresh()
         padDay = try c.decodeIfPresent(CalendarDay.self, forKey: .padDay) ?? defaults.padDay
+        topSince = try c.decodeIfPresent(Date.self, forKey: .topSince)
         padOrigin = try c.decodeIfPresent(CGPoint.self, forKey: .padOrigin)
         keepOnTop = try c.decodeIfPresent(Bool.self, forKey: .keepOnTop) ?? defaults.keepOnTop
         location = try c.decodeIfPresent(GeoLocation.self, forKey: .location)

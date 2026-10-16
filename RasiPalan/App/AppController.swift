@@ -15,6 +15,8 @@ final class PadModel {
     var scale: CGFloat
     /// The top sheet is off being torn; the pad shows the next day on top.
     var isTearing = false
+    /// How worn the top sheet looks from hanging there (see `SheetFace.wear`).
+    var wear: Float = 0
     var perforations = TearPhysics.defaults.holes
     /// The printed board the pad hangs on, if any.
     var board: BoardStyle = .none
@@ -78,6 +80,7 @@ final class AppController {
     private var layoutEditor: LayoutEditorWindowController?
     private(set) var personal: PersonalDataService?
     private var appearanceObservation: NSKeyValueObservation?
+    private var wearTimer: Timer?
 
     /// Only move the saved location if the user has really travelled.
     private static let relocationThresholdKm = 25.0
@@ -111,6 +114,7 @@ final class AppController {
             }
         }
         SoundPlayer.shared.isEnabled = state.soundEnabled
+        updateWear()
         registerFrontShortcut()
         personal = PersonalDataService(store: store, model: model)
         personal?.refresh()
@@ -145,7 +149,7 @@ final class AppController {
         pad.onTearBegan = { [weak self] point in
             guard let self else { return }
             tear.begin(at: point, sheetRect: pad.sheetScreenRect, context: model.context, layout: model.layout,
-                       theme: model.theme(), level: pad.level)
+                       theme: model.theme(), wear: model.wear, level: pad.level)
         }
         pad.onTearMoved = { [weak self] point, time in self?.tear.move(to: point, time: time) }
         pad.onTearEnded = { [weak self] point, time in self?.tear.end(at: point, time: time) }
@@ -168,6 +172,14 @@ final class AppController {
             MainActor.assumeIsolated { self?.bringEverythingOnScreen() }
         }
         bringEverythingOnScreen()
+
+        wearTimer = Timer.scheduledTimer(withTimeInterval: 10 * 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateWear() }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                                          object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateWear() }
+        }
     }
 
     var state: AppState { store.state }
@@ -183,6 +195,25 @@ final class AppController {
         if dayChanged { personal?.refresh() }
         model.nextContext = model.context.next()
         model.language = store.state.language
+        updateWear()
+    }
+
+    // MARK: - Wear
+
+    private func updateWear() {
+        let wear = Self.wear(day: state.padDay, since: state.topSince, now: Date())
+        if abs(wear - model.wear) > 0.001 { model.wear = wear }
+    }
+
+    /// How worn the top sheet looks: flat for most of its own day, a slight crumple from the
+    /// evening (0.08 by midnight), properly old from 3–4 days, nearly 1 by a month.
+    static func wear(day: CalendarDay, since: Date?, now: Date) -> Float {
+        let uncovered = max(day.date(hour: 0), since ?? .distantPast)
+        let days = Float(now.timeIntervalSince(uncovered) / 86_400)
+        let evening: Float = 16.0 / 24
+        guard days > evening else { return 0 }
+        if days < 1 { return 0.08 * (days - evening) / (1 - evening) }
+        return 0.08 + 0.92 * (1 - exp(-(days - 1) / 7))
     }
 
     // MARK: - Location
@@ -400,10 +431,12 @@ final class AppController {
     /// A sheet came off: the pad moves on to the next day.
     private func advancePad() {
         let torn = store.state.padDay
+        let tornSince = store.state.topSince
         store.state.padDay = torn.adding(days: 1)
+        store.state.topSince = Date()
         model.isTearing = false
         commit()
-        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(torn) }
+        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(torn, since: tornSince) }
         undoManager.setActionName("Tear")
     }
 
@@ -416,13 +449,14 @@ final class AppController {
         undoManager.undo()
     }
 
-    private func putSheetBack(_ day: CalendarDay) {
+    private func putSheetBack(_ day: CalendarDay, since: Date?) {
         if let sheet = state.floatingSheets.last(where: { $0.day == day }) {
             floatingSheets?.remove(sheet.id)
         } else if let ball = state.paperBalls.last(where: { $0.day == day }) {
             paperBalls?.remove(ball.id)
         }
         store.state.padDay = day
+        store.state.topSince = since
         commit()
         SoundPlayer.shared.play("rustle", volume: 0.5)
     }
@@ -497,14 +531,23 @@ final class AppController {
         SoundPlayer.shared.isEnabled = on
     }
 
-    /// Debug: browse dates without tearing.
+    /// Debug: browse dates without tearing (going back shows how a neglected pad ages).
     func shiftPadDay(by days: Int) {
         store.state.padDay = store.state.padDay.adding(days: days)
+        store.state.topSince = nil
         commit()
     }
 
+    /// Catches a neglected pad up in one go: every stale sheet goes, today's is on top and fresh.
+    /// Undoable, like a tear.
     func resetPadDayToToday() {
+        let day = store.state.padDay, since = store.state.topSince
+        guard day != .today() else { return }
         store.state.padDay = .today()
+        store.state.topSince = Date()
         commit()
+        SoundPlayer.shared.play("rustle", volume: 0.6)
+        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(day, since: since) }
+        undoManager.setActionName("Back to Today")
     }
 }

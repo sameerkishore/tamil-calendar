@@ -304,3 +304,106 @@ static half halftoneScreen(float2 position, SwiftUI::Layer layer, float pitch, f
     c += half(hash21(floor(position / unit * 1.5)) - 0.5) * 0.05h;
     return half4(clamp(c, 0.0h, 1.0h), 1.0h);
 }
+
+// The dog-ear: a bottom corner folded over onto the front along the line `len` in from the
+// corner (measured along `d`, which points at the corner). True where the flap lies, and `m`
+// is the point on the sheet that folded over to land here.
+static bool dogEarFlap(float2 pos, float2 corner, float2 d, float len, float2 size, thread float2 &m) {
+    float g = dot(corner - pos, d);
+    m = pos + d * (2.0 * (g - len));
+    return len > 0.0 && g >= len && g <= 2.0 * len
+        && m.x >= 0.0 && m.y >= 0.0 && m.x <= size.x && m.y <= size.y;
+}
+
+// A sheet left on the pad too long. Applied as a layerEffect to the printed sheet face.
+// wear: 0 = fresh … ~0.12 by the end of its own day (a few soft wrinkles) … 1 = a month
+// neglected: crumpled and creased, yellowed and foxed, edges frayed, a bottom corner dog-eared.
+// `paper` is the stock's colour, for the back of the folded corner.
+[[ stitchable ]] half4 aged(float2 position, SwiftUI::Layer layer, float2 size, float unit,
+                            float seed, float wear, half4 paper) {
+    float w = clamp(wear, 0.0, 1.0);
+    if (w <= 0.001) return layer.sample(position);
+    float2 p = position / unit;
+
+    // Dog-ear, from about a week in. Which corner, and how it's angled, comes from the date.
+    bool right = fract(seed * 0.37) > 0.4;
+    float2 corner = float2(right ? size.x : 0.0, size.y);
+    float2 d = normalize(float2(right ? 1.0 : -1.0, 0.7 + 0.7 * fract(seed * 1.9)));
+    float earLen = smoothstep(0.55, 1.0, w) * (18.0 + 16.0 * fract(seed * 2.3)) * unit;
+    if (earLen > 0.0 && dot(corner - position, d) < earLen) return half4(0.0h); // folded away
+    float2 m;
+    bool flap = dogEarFlap(position, corner, d, earLen, size, m);
+
+    // Edges fray (sides and bottom; the top is the torn perforation already).
+    float fray = smoothstep(0.4, 1.0, w);
+    float edgeX = min(p.x, size.x / unit - p.x);
+    float edgeY = size.y / unit - p.y;
+    float along = edgeX < edgeY ? p.y : p.x;
+    float bite = fray * (0.4 + 2.6 * valueNoise(float2(along * 0.35, seed))
+                              + 1.2 * hash21(float2(floor(along * 2.5), seed)));
+    if (!flap && min(edgeX, edgeY) < bite) return half4(0.0h);
+
+    // Soft wrinkles from the first hours: a gentle height field, lit from the top left.
+    float2 L = normalize(float2(-0.6, -0.8));
+    float soft = smoothstep(0.0, 0.12, w) * 0.5 + smoothstep(0.12, 1.0, w) * 0.5;
+    float old = smoothstep(0.25, 1.0, w);   // from about 3 days: the sheet starts to look old
+    float2 hq = p * 0.014 + seed;
+    float h0 = fbm(hq) + 0.3 * fbm(hq * 2.2 + 5.0);
+    float hx = fbm(hq + float2(0.02, 0)) + 0.3 * fbm((hq + float2(0.02, 0)) * 2.2 + 5.0);
+    float hy = fbm(hq + float2(0, 0.02)) + 0.3 * fbm((hq + float2(0, 0.02)) * 2.2 + 5.0);
+    float2 grad = float2(hx - h0, hy - h0) / 0.02;
+    float shade = 1.0 + dot(grad, L) * 0.13 * soft;
+
+    // Creases: sharp folds where the sheet has been crushed, more and finer as days pass.
+    float creaseBig = smoothstep(0.08, 0.5, w);
+    float creaseMid = smoothstep(0.3, 0.9, w);
+    float2 warp = (float2(fbm(p * 0.04 + seed), fbm(p * 0.04 + seed + 7.0)) - 0.5) * 30.0;
+    float2 bigId, midId;
+    float bigCrease = voronoi((p + warp) / 120.0, seed + 1.3, bigId);
+    float midCrease = voronoi((p - warp * 0.5) / 55.0, seed + 4.1, midId);
+    float2 bigRnd = hash22(bigId + seed * 1.7) - 0.5;
+    float2 midRnd = hash22(midId + seed * 2.9) - 0.5;
+    shade += dot(bigRnd, L) * 0.16 * creaseBig + dot(midRnd, L) * 0.10 * creaseMid;
+    shade -= 0.16 * creaseBig * (1.0 - smoothstep(0.0, 0.025, bigCrease));
+    shade += 0.05 * creaseBig * (smoothstep(0.02, 0.04, bigCrease) - smoothstep(0.04, 0.09, bigCrease));
+    shade -= 0.09 * creaseMid * (1.0 - smoothstep(0.0, 0.03, midCrease));
+    // Bottom edge curling up off the pad.
+    shade -= 0.10 * fray * (1.0 - smoothstep(0.0, 14.0, edgeY));
+
+    // Print shifts a touch across each facet, as crumpled paper never lies quite flat again.
+    float2 shift = (bigRnd * 1.4 * creaseBig + midRnd * 0.8 * creaseMid) * unit;
+    half4 col;
+    if (flap) {
+        // Back of the paper, the print faintly showing through (mirrored, as it should be).
+        half4 through = layer.sample(m);
+        col = half4(mix(paper.rgb, through.rgb, 0.12h), 1.0h);
+        float g = dot(corner - position, d);
+        shade = 1.04 - 0.10 * (g / earLen - 1.0);   // lit where it lifts at the crease
+    } else {
+        col = layer.sample(position + shift);
+        if (col.a < 0.001h) return col;
+        // The flap casts a small shadow onto the front.
+        float2 m2;
+        float sh = 0.0;
+        sh += dogEarFlap(position - float2(1.0, 1.5) * unit, corner, d, earLen, size, m2) ? 0.5 : 0.0;
+        sh += dogEarFlap(position - float2(2.0, 3.0) * unit, corner, d, earLen, size, m2) ? 0.5 : 0.0;
+        shade *= 1.0 - 0.22 * sh;
+    }
+    half3 c = col.a > 0.001h ? col.rgb / col.a : col.rgb;
+
+    // Yellowing: the whole sheet, more at the edges and in blotches; foxing specks later on.
+    float edge = min(min(p.x, size.x / unit - p.x), min(p.y, size.y / unit - p.y));
+    float edgeBand = 1.0 - smoothstep(0.0, 14.0 + 26.0 * fbm(p * 0.05 + seed * 3.0), edge);
+    // Kept mild: an old sheet, not a mouldy one.
+    float blotch = smoothstep(0.58, 0.75, fbm(p * 0.018 + seed * 4.3)) * old;
+    float yellow = clamp(old * 0.28 + edgeBand * old * 0.32 + blotch * 0.15, 0.0, 1.0);
+    c = mix(c, c * half3(0.97h, 0.89h, 0.72h), half(yellow));
+    half fox = half(specks(p * 0.22 + seed * 6.1, 0.08 * smoothstep(0.45, 1.0, w)));
+    c = mix(c, c * half3(0.85h, 0.74h, 0.6h), clamp(fox, 0.0h, 1.0h) * 0.3h);
+    c *= half(1.0 - 0.05 * w);   // dust
+
+    // Shadows in paper are warm, not grey.
+    half3 tint = mix(half3(0.88h, 0.82h, 0.72h), half3(1.0h), half(clamp(shade, 0.0, 1.0)));
+    c = clamp(c * half(shade) * tint, 0.0h, 1.0h);
+    return half4(c * col.a, col.a);
+}
