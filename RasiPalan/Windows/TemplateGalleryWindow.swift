@@ -10,7 +10,8 @@ final class TemplateGalleryWindowController {
 
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
          choosePicture: @escaping () -> Void, customize: @escaping () -> Void, adjustPicture: @escaping () -> Void,
-         setPhotoPrinted: @escaping (Bool) -> Void, customLayout: @escaping () -> CardLayout?) {
+         setPhotoPrinted: @escaping (Bool) -> Void, setPalette: @escaping (BoardPalette) -> Void,
+         customLayout: @escaping () -> CardLayout?) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 900, height: 680),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
@@ -18,7 +19,7 @@ final class TemplateGalleryWindowController {
         window.contentMinSize = CGSize(width: 560, height: 420)
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
             model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
-            customize: customize, adjustPicture: adjustPicture, setPhotoPrinted: setPhotoPrinted,
+            customize: customize, adjustPicture: adjustPicture, setPhotoPrinted: setPhotoPrinted, setPalette: setPalette,
             customLayout: customLayout))
     }
 
@@ -37,6 +38,7 @@ struct TemplateGalleryView: View {
     let customize: () -> Void
     let adjustPicture: () -> Void
     let setPhotoPrinted: (Bool) -> Void
+    let setPalette: (BoardPalette) -> Void
     let customLayout: () -> CardLayout?
     /// Off only for debug snapshots, which can't render a scroll view.
     var scrolls = true
@@ -91,7 +93,7 @@ struct TemplateGalleryView: View {
                     Button { chooseBoard(style) } label: {
                         VStack(spacing: 6) {
                             BoardThumbnail(style: style, image: model.boardImage, crop: model.boardCrop,
-                                           printed: model.boardPhotoPrinted,
+                                           printed: model.boardPhotoPrinted, palette: model.boardPalette,
                                            year: model.context.day.year)
                                 .overlay(selection(model.board == style))
                             Text(style.title).font(.caption.bold())
@@ -112,9 +114,68 @@ struct TemplateGalleryView: View {
                 }
                 Button(model.boardImage == nil ? "Choose Picture…" : "Change Picture…", action: choosePicture)
             }
+            if model.board == .plain || model.board == .custom {
+                Divider()
+                paletteSection
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var paletteSection: some View {
+        let palette = model.boardPalette
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Board colours").font(.title3.bold())
+            HStack(spacing: 14) {
+                ForEach(BoardPalette.presets, id: \.name) { preset in
+                    Button {
+                        var next = preset.palette
+                        next.motif = palette.motif
+                        next.density = palette.density
+                        setPalette(next)
+                    } label: {
+                        VStack(spacing: 5) {
+                            PaletteSwatch(palette: preset.palette)
+                                .overlay(selection(palette.presetName == preset.name))
+                            Text(preset.name).font(.caption.bold())
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            DisclosureGroup("Pick your own colours") {
+                HStack(spacing: 20) {
+                    colorWell("Background", \.background)
+                    colorWell("Band", \.band)
+                    colorWell("Frame", \.accent)
+                    Spacer()
+                }
+                .padding(.top, 6)
+            }
+            HStack(spacing: 16) {
+                Picker("Pattern", selection: Binding(get: { palette.motif },
+                                                     set: { var p = palette; p.motif = $0; setPalette(p) })) {
+                    ForEach(BoardMotif.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .frame(maxWidth: 220)
+                if palette.motif != .none {
+                    Picker("Spacing", selection: Binding(get: { palette.density },
+                                                         set: { var p = palette; p.density = $0; setPalette(p) })) {
+                        ForEach(PatternDensity.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 240)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private func colorWell(_ title: String, _ key: WritableKeyPath<BoardPalette, BoardColor>) -> some View {
+        ColorPicker(title, selection: Binding(get: { model.boardPalette[keyPath: key].color },
+                                              set: { var p = model.boardPalette; p[keyPath: key] = BoardColor($0); setPalette(p) }),
+                    supportsOpacity: false)
     }
 
     private func selection(_ selected: Bool) -> some View {
@@ -130,6 +191,7 @@ private struct BoardThumbnail: View {
     let image: NSImage?
     var crop = PhotoCrop()
     var printed = true
+    var palette = BoardPalette.classic
     let year: Int
 
     static let scale: CGFloat = 0.25
@@ -142,7 +204,7 @@ private struct BoardThumbnail: View {
         let origin = PadView.padOrigin(board: style)
         ZStack(alignment: .topLeading) {
             if style != .none {
-                BoardView(style: style, year: year, image: image, crop: crop, printed: printed)
+                BoardView(style: style, year: year, image: image, crop: crop, printed: printed, palette: palette)
             }
             VStack(spacing: 0) {
                 Rectangle().fill(Ink.red).frame(height: theme.u(PadView.gripHeight))
@@ -154,5 +216,20 @@ private struct BoardThumbnail: View {
         }
         .frame(width: theme.u(BoardStyle.temple.size.width), height: theme.u(content.height + 10), alignment: .top)
         .environment(\.cardTheme, theme)
+    }
+}
+
+/// A palette as a little chip: the stock, the band and the frame colour.
+private struct PaletteSwatch: View {
+    let palette: BoardPalette
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(palette.background.color)
+            Rectangle().fill(palette.band.color).frame(height: 14)
+            RoundedRectangle(cornerRadius: 2).stroke(palette.accent.color, lineWidth: 2).padding(4)
+        }
+        .frame(width: 64, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
