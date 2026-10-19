@@ -23,6 +23,7 @@ final class PadModel {
     var boardImage: NSImage?
     var boardCrop = PhotoCrop()
     var boardPhotoPrinted = true
+    var boardPalette = BoardPalette.classic
     /// The pad (and torn sheets, balls, bin) float above all windows instead of the desktop.
     var keepOnTop = false
     /// Reminders, events and weather for the days on the pad.
@@ -104,6 +105,7 @@ final class AppController {
         model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
         model.boardCrop = store.state.boardCrop
         model.boardPhotoPrinted = store.state.boardPhotoPrinted
+        model.boardPalette = store.state.boardPalette
         model.keepOnTop = store.state.keepOnTop
     }
 
@@ -309,6 +311,7 @@ final class AppController {
                 customize: { [weak self] in self?.showLayoutEditor() },
                 adjustPicture: { [weak self] in self?.adjustBoardImage() },
                 setPhotoPrinted: { [weak self] in self?.setBoardPhotoPrinted($0) },
+                setPalette: { [weak self] in self?.setBoardPalette($0) },
                 customLayout: { [weak self] in self?.state.customLayout })
         }
         gallery?.show()
@@ -404,6 +407,13 @@ final class AppController {
         store.state.boardPhotoPrinted = on
         store.save()
         model.boardPhotoPrinted = on
+    }
+
+    /// Recolours the Plain and Your Own Picture boards. Only the board changes, never the date.
+    func setBoardPalette(_ palette: BoardPalette) {
+        store.state.boardPalette = palette
+        store.save()
+        model.boardPalette = palette
     }
 
     /// Opens the crop window for the board picture; changes apply live.

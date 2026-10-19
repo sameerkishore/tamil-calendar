@@ -61,7 +61,7 @@ struct PadView: View {
         ZStack(alignment: .topLeading) {
             if model.board != .none {
                 BoardView(style: model.board, year: top.day.year, image: model.boardImage, crop: model.boardCrop,
-                          printed: model.boardPhotoPrinted)
+                          printed: model.boardPhotoPrinted, palette: model.boardPalette)
                     .overlay { if interactive { WindowDragHandle() } }
             }
             pad(theme: theme, sheet: sheet, top: top)

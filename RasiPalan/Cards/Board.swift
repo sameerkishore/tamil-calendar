@@ -39,9 +39,8 @@ struct BoardView: View {
     var crop = PhotoCrop()
     /// Vintage print effect on the picture (custom board only).
     var printed = true
+    var palette = BoardPalette.classic
     @Environment(\.cardTheme) private var theme
-
-    private static let band = Color(red: 0.05, green: 0.42, blue: 0.43)
 
     var body: some View {
         let size = CGSize(width: theme.u(style.size.width), height: theme.u(style.size.height))
@@ -49,7 +48,7 @@ struct BoardView: View {
             background(size)
 
             // Band, brand and year.
-            Rectangle().fill(Self.band)
+            Rectangle().fill(palette.band.color)
                 .frame(width: size.width, height: theme.u(style.band.height))
                 .offset(y: theme.u(style.band.top))
             sideText(size)
@@ -57,7 +56,7 @@ struct BoardView: View {
             Text("Printed at RASI PALAN PRESS\nDESKTOP-1")
                 .font(.system(size: theme.u(5.5), weight: .bold))
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(palette.bandText.opacity(0.8))
                 .frame(width: theme.u(style.padOrigin.x))
                 .offset(x: size.width - theme.u(style.padOrigin.x),
                         y: theme.u(style.band.top + style.band.height - 20))
@@ -93,25 +92,26 @@ struct BoardView: View {
                     .offset(x: size.width / 2 - theme.u(35), y: theme.u(18))
             }
         case .plain, .none:
-            Rectangle().fill(Color(red: 0.55, green: 0.10, blue: 0.16))
-                // Printed card, not flat colour: tone-on-tone rosettes and a fine linen grain.
-                .overlay(RosettePattern(spacing: theme.u(30))
-                    .stroke(Color(red: 0.42, green: 0.05, blue: 0.11).opacity(0.7), lineWidth: max(1, theme.u(1.1))))
-                .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
+            printedStock
                 .overlay(RoundedRectangle(cornerRadius: theme.u(3))
-                    .stroke(Color(red: 0.85, green: 0.68, blue: 0.3), lineWidth: theme.u(3))
+                    .stroke(palette.accent.mixed(with: .black, 0.1).color, lineWidth: theme.u(3))
                     .padding(theme.u(10)))
         case .custom:
             ZStack(alignment: .topLeading) {
-                Rectangle().fill(Color(red: 0.55, green: 0.10, blue: 0.16))
-                    .overlay(RosettePattern(spacing: theme.u(30))
-                        .stroke(Color(red: 0.42, green: 0.05, blue: 0.11).opacity(0.7), lineWidth: max(1, theme.u(1.1))))
-                    .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
-                PhotoPortrait(image: image, crop: crop, printed: printed)
+                printedStock
+                PhotoPortrait(image: image, crop: crop, printed: printed, palette: palette)
                     .frame(width: theme.u(BoardStyle.photoFrame.width), height: theme.u(BoardStyle.photoFrame.height))
                     .offset(x: theme.u(BoardStyle.photoFrame.minX), y: theme.u(BoardStyle.photoFrame.minY))
             }
         }
+    }
+
+    /// Printed card, not flat colour: tone-on-tone tiles and a fine linen grain.
+    private var printedStock: some View {
+        Rectangle().fill(palette.background.color)
+            .overlay(MotifPattern(motif: palette.motif, spacing: theme.u(palette.tileSpacing))
+                .stroke(palette.patternColor.opacity(0.7), lineWidth: max(1, theme.u(1.1))))
+            .colorEffect(ShaderLibrary.linen(.float(theme.scale)))
     }
 
     private func sideText(_ size: CGSize) -> some View {
@@ -134,8 +134,8 @@ struct BoardView: View {
                 .lineLimit(1)
                 .frame(width: side)
         }
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.3), radius: theme.u(1), y: theme.u(1))
+        .foregroundStyle(palette.bandText)
+        .shadow(color: palette.bandTextIsDark ? .clear : .black.opacity(0.3), radius: theme.u(1), y: theme.u(1))
         .frame(width: size.width, height: theme.u(style.band.height))
         .offset(y: theme.u(style.band.top))
     }
@@ -154,12 +154,13 @@ struct PhotoPortrait: View {
     let image: NSImage?
     let crop: PhotoCrop
     var printed = true
+    var palette = BoardPalette.classic
     @Environment(\.cardTheme) private var theme
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color(red: 0.25, green: 0.05, blue: 0.08)
+                palette.wellColor
                 if let image {
                     // Printed on the board like the rest of it: a four-colour halftone.
                     CroppedImage(image: image, crop: crop, size: geo.size)
@@ -176,8 +177,8 @@ struct PhotoPortrait: View {
                 }
             }
             .clipShape(Arch())
-            .overlay(Arch().stroke(Color(red: 0.95, green: 0.76, blue: 0.32), lineWidth: theme.u(5)))
-            .overlay(Arch().inset(by: theme.u(7)).stroke(Color(red: 0.95, green: 0.76, blue: 0.32).opacity(0.7), lineWidth: max(1, theme.u(1))))
+            .overlay(Arch().stroke(palette.accent.color, lineWidth: theme.u(5)))
+            .overlay(Arch().inset(by: theme.u(7)).stroke(palette.accent.color.opacity(0.7), lineWidth: max(1, theme.u(1))))
             .shadow(color: .black.opacity(0.35), radius: theme.u(3), y: theme.u(2))
         }
     }
@@ -384,7 +385,7 @@ private struct TempleScene: View {
 }
 
 /// Tone-on-tone rosettes for printed board stock.
-private struct RosettePattern: Shape {
+struct RosettePattern: Shape {
     let spacing: CGFloat
 
     func path(in rect: CGRect) -> Path {
@@ -411,7 +412,7 @@ private struct RosettePattern: Shape {
 }
 
 /// Dots with loops around them, like a pulli kolam.
-private struct KolamPattern: Shape {
+struct KolamPattern: Shape {
     let spacing: CGFloat
 
     func path(in rect: CGRect) -> Path {

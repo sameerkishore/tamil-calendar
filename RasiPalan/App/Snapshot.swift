@@ -108,6 +108,13 @@ enum Snapshot {
         // -snapshotBoard temple: the pad on a board.
         if let board = defaults.string(forKey: "snapshotBoard").flatMap(BoardStyle.init(rawValue:)) {
             model.board = board
+            if let name = defaults.string(forKey: "snapshotPalette"),
+               let preset = BoardPalette.presets.first(where: { $0.name.lowercased() == name.lowercased() }) {
+                model.boardPalette = preset.palette
+            }
+            if let motif = defaults.string(forKey: "snapshotMotif").flatMap(BoardMotif.init(rawValue:)) {
+                model.boardPalette.motif = motif
+            }
             if let path = defaults.string(forKey: "snapshotImage") { model.boardImage = NSImage(contentsOfFile: path) }
             content = AnyView(PadView(model: model, interactive: false))
         }
@@ -169,7 +176,7 @@ enum Snapshot {
             content = AnyView(HStack(alignment: .top, spacing: 20) {
                 ForEach([900, 560] as [CGFloat], id: \.self) { width in
                     TemplateGalleryView(model: model, chooseLayout: { _ in }, chooseBoard: { _ in },
-                                        choosePicture: {}, customize: {}, adjustPicture: {}, setPhotoPrinted: { _ in },
+                                        choosePicture: {}, customize: {}, adjustPicture: {}, setPhotoPrinted: { _ in }, setPalette: { _ in },
                                         customLayout: { state.customLayout }, scrolls: false)
                         .frame(width: width)
                         .background(Color.white)
