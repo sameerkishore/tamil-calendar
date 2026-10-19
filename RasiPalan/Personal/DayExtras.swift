@@ -30,6 +30,13 @@ struct PrintedWeather: Codable, Hashable {
     var now: Double?
     var nowCode: Int?
 
+    /// "33° / 25° / 84%": high, low and humidity, the % saying what the last one is.
+    var summary: String {
+        var parts = ["\(Int(high.rounded()))°", "\(Int(low.rounded()))°"]
+        if let humidity { parts.append("\(humidity)%") }
+        return parts.joined(separator: " / ")
+    }
+
     var description: LocalizedText {
         switch nowCode ?? code {
         case 0: .init(ta: "தெளிவான வானம்", en: "Clear sky")
