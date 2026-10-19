@@ -97,7 +97,7 @@ struct BoardPalette: Codable, Equatable {
 
     /// Tone-on-tone ink for the tiles: a shade darker than the stock, or lighter if it's already dark.
     var patternColor: Color {
-        (background.luminance < 0.2 ? background.mixed(with: .white, 0.14) : background.mixed(with: .black, 0.25)).color
+        (background.luminance < 0.2 ? background.mixed(with: .white, 0.40) : background.mixed(with: .black, 0.25)).color
     }
 
     /// The deepest shade of the stock, behind the photo.
