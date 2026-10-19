@@ -35,8 +35,8 @@ targets:
       path: RasiPalan/Info.plist
       properties:
         CFBundleDisplayName: Tamil Calendar
-        CFBundleShortVersionString: "1.4.0"
-        CFBundleVersion: "6"
+        CFBundleShortVersionString: "1.5.0"
+        CFBundleVersion: "7"
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.lifestyle
         NSPrincipalClass: NSApplication
