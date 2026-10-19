@@ -24,6 +24,8 @@ struct PrintedWeather: Codable, Hashable {
     var low: Double
     /// Chance of rain, percent.
     var rain: Int?
+    /// Relative humidity, percent: right now on today's sheet, the day's average on others.
+    var humidity: Int?
     /// Temperature and conditions right now. Only on today's sheet.
     var now: Double?
     var nowCode: Int?

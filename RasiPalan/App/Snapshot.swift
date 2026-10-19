@@ -125,7 +125,7 @@ enum Snapshot {
                 reminders: ["Pay electricity bill", "அம்மாவுக்கு போன் பண்ணு", "Buy flowers", "Return library book"],
                 events: [PrintedEvent(time: nil, title: "Navaratri holiday"), PrintedEvent(time: "9.30", title: "Team standup"),
                          PrintedEvent(time: "6", title: "Temple with family")],
-                weather: PrintedWeather(code: 95, high: 31.4, low: 24.6, rain: 70))
+                weather: PrintedWeather(code: 95, high: 31.4, low: 24.6, rain: 70, humidity: 84))
             var t = theme
             t.myRasi = 4
             content = AnyView(HStack(spacing: 20) {
@@ -142,7 +142,7 @@ enum Snapshot {
                             "Fill interview - Camille", "Call Andrew from reform", "Look at Jay’s gift",
                             "Recheck the excel sheet"],
                 events: [PrintedEvent(time: "9.30", title: "Team standup")],
-                weather: PrintedWeather(code: 1, high: 36.2, low: 28.4, rain: 20, now: 31.6, nowCode: 0))
+                weather: PrintedWeather(code: 1, high: 36.2, low: 28.4, rain: 20, humidity: 62, now: 31.6, nowCode: 0))
             let below = LayoutDraft(from: .classic)
             below.header = .twoColumn
             below.items = [.init(type: RemindersBlock.type), .init(type: EventsBlock.type)]

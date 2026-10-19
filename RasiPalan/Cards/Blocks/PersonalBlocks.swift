@@ -173,6 +173,9 @@ struct WeatherBlock: CardBlock {
                     .fixedSize()
                     .padding(.vertical, theme.u(2))
                 Text("\(Int(w.high.rounded()))° / \(Int(w.low.rounded()))°").font(theme.latin(13, bold: true))
+                if let h = w.humidity {
+                    theme.label(LocalizedText(ta: "ஈரப்பதம் \(h)%", en: "humidity \(h)%"), 11)
+                }
                 if let rain = w.rain, rain >= 20 {
                     theme.label(LocalizedText(ta: "மழை \(rain)%", en: "rain \(rain)%"), 11)
                 }
@@ -192,6 +195,9 @@ struct WeatherBlock: CardBlock {
                         .font(.system(size: theme.u(14), weight: .semibold))
                     Text("\(Int(w.high.rounded()))° / \(Int(w.low.rounded()))°").font(theme.latin(11, bold: true))
                     theme.label(w.description, 10.5)
+                    if let h = w.humidity {
+                        theme.label(LocalizedText(ta: "ஈரப்பதம் \(h)%", en: "humidity \(h)%"), 10)
+                    }
                     if let rain = w.rain, rain >= 20 {
                         theme.label(LocalizedText(ta: "மழை \(rain)%", en: "rain \(rain)%"), 10)
                     }
