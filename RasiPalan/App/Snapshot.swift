@@ -49,7 +49,7 @@ enum Snapshot {
             content = AnyView(HStack(spacing: 0) {
                 ForEach([0.95, 1.35, 3.0, 4.0, 7.0, 30.0], id: \.self) { days in
                     SheetFace(context: context, layout: model.layout,
-                              wear: AppController.wear(day: day, since: nil, now: start.addingTimeInterval(days * 86_400)))
+                              wear: AppController.wear(day: day, now: start.addingTimeInterval(days * 86_400)))
                         .shadow(color: .black.opacity(0.3), radius: 6, y: 4)
                         .padding(10)
                 }

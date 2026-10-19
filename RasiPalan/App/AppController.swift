@@ -15,8 +15,10 @@ final class PadModel {
     var scale: CGFloat
     /// The top sheet is off being torn; the pad shows the next day on top.
     var isTearing = false
-    /// How worn the top sheet looks from hanging there (see `SheetFace.wear`).
+    /// How worn the top sheet looks, from its date alone (see `AppController.wear`).
     var wear: Float = 0
+    /// The same for the sheet underneath, which a tear uncovers.
+    var nextWear: Float = 0
     var perforations = TearPhysics.defaults.holes
     /// The printed board the pad hangs on, if any.
     var board: BoardStyle = .none
@@ -201,15 +203,17 @@ final class AppController {
     // MARK: - Wear
 
     private func updateWear() {
-        let wear = Self.wear(day: state.padDay, since: state.topSince, now: Date())
+        let now = Date()
+        let wear = Self.wear(day: state.padDay, now: now)
+        let nextWear = Self.wear(day: state.padDay.adding(days: 1), now: now)
         if abs(wear - model.wear) > 0.001 { model.wear = wear }
+        if abs(nextWear - model.nextWear) > 0.001 { model.nextWear = nextWear }
     }
 
     /// How worn the top sheet looks: flat for most of its own day, a slight crumple from the
     /// evening (0.08 by midnight), properly old from 3–4 days, nearly 1 by a month.
-    static func wear(day: CalendarDay, since: Date?, now: Date) -> Float {
-        let uncovered = max(day.date(hour: 0), since ?? .distantPast)
-        let days = Float(now.timeIntervalSince(uncovered) / 86_400)
+    static func wear(day: CalendarDay, now: Date) -> Float {
+        let days = Float(now.timeIntervalSince(day.date(hour: 0)) / 86_400)
         let evening: Float = 16.0 / 24
         guard days > evening else { return 0 }
         if days < 1 { return 0.08 * (days - evening) / (1 - evening) }
@@ -431,12 +435,10 @@ final class AppController {
     /// A sheet came off: the pad moves on to the next day.
     private func advancePad() {
         let torn = store.state.padDay
-        let tornSince = store.state.topSince
         store.state.padDay = torn.adding(days: 1)
-        store.state.topSince = Date()
         model.isTearing = false
         commit()
-        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(torn, since: tornSince) }
+        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(torn) }
         undoManager.setActionName("Tear")
     }
 
@@ -449,14 +451,13 @@ final class AppController {
         undoManager.undo()
     }
 
-    private func putSheetBack(_ day: CalendarDay, since: Date?) {
+    private func putSheetBack(_ day: CalendarDay) {
         if let sheet = state.floatingSheets.last(where: { $0.day == day }) {
             floatingSheets?.remove(sheet.id)
         } else if let ball = state.paperBalls.last(where: { $0.day == day }) {
             paperBalls?.remove(ball.id)
         }
         store.state.padDay = day
-        store.state.topSince = since
         commit()
         SoundPlayer.shared.play("rustle", volume: 0.5)
     }
@@ -534,20 +535,18 @@ final class AppController {
     /// Debug: browse dates without tearing (going back shows how a neglected pad ages).
     func shiftPadDay(by days: Int) {
         store.state.padDay = store.state.padDay.adding(days: days)
-        store.state.topSince = nil
         commit()
     }
 
     /// Catches a neglected pad up in one go: every stale sheet goes, today's is on top and fresh.
     /// Undoable, like a tear.
     func resetPadDayToToday() {
-        let day = store.state.padDay, since = store.state.topSince
+        let day = store.state.padDay
         guard day != .today() else { return }
         store.state.padDay = .today()
-        store.state.topSince = Date()
         commit()
         SoundPlayer.shared.play("rustle", volume: 0.6)
-        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(day, since: since) }
+        undoManager.registerUndo(withTarget: self) { $0.putSheetBack(day) }
         undoManager.setActionName("Back to Today")
     }
 }
