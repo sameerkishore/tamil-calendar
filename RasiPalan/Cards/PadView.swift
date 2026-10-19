@@ -95,8 +95,8 @@ struct PadView: View {
                 SheetFace(context: top, layout: model.layout,
                           showThrough: model.isTearing ? top.next() : model.nextContext,
                           extras: model.extras[top.day],
-                          // The sheet uncovered mid-tear has been under another all along.
-                          wear: model.isTearing ? 0 : model.wear)
+                          // Mid-tear, the sheet being uncovered shows its own age.
+                          wear: model.isTearing ? model.nextWear : model.wear)
                     .overlay {
                         if interactive {
                             PointerTracker(began: onTearBegan, moved: onTearMoved, ended: onTearEnded)
