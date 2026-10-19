@@ -163,16 +163,15 @@ struct WeatherBlock: CardBlock {
                 Image(systemName: w.symbol)
                     .font(.system(size: theme.u(24), weight: .semibold))
                     .frame(height: theme.u(30))
-                theme.label(w.description, 13)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
                 Text("\(Int((w.now ?? w.high).rounded()))°")
                     .font(theme.numeral(54))
                     .scaleEffect(x: 0.9, y: 1)
                     .lineLimit(1)
                     .fixedSize()
                     .padding(.vertical, theme.u(2))
-                Text("\(Int(w.high.rounded()))° / \(Int(w.low.rounded()))°").font(theme.latin(13, bold: true))
+                Text(w.summary).font(theme.latin(13, bold: true))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 if let rain = w.rain, rain >= 20 {
                     theme.label(LocalizedText(ta: "மழை \(rain)%", en: "rain \(rain)%"), 11)
                 }
@@ -190,8 +189,7 @@ struct WeatherBlock: CardBlock {
                 HStack(spacing: theme.u(5)) {
                     Image(systemName: w.symbol)
                         .font(.system(size: theme.u(14), weight: .semibold))
-                    Text("\(Int(w.high.rounded()))° / \(Int(w.low.rounded()))°").font(theme.latin(11, bold: true))
-                    theme.label(w.description, 10.5)
+                    Text(w.summary).font(theme.latin(11, bold: true))
                     if let rain = w.rain, rain >= 20 {
                         theme.label(LocalizedText(ta: "மழை \(rain)%", en: "rain \(rain)%"), 10)
                     }

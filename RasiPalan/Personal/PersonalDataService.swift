@@ -156,8 +156,8 @@ final class PersonalDataService {
         url.queryItems = [
             .init(name: "latitude", value: String(format: "%.2f", location.latitude)),
             .init(name: "longitude", value: String(format: "%.2f", location.longitude)),
-            .init(name: "current", value: "temperature_2m,weather_code"),
-            .init(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"),
+            .init(name: "current", value: "temperature_2m,weather_code,relative_humidity_2m"),
+            .init(name: "daily", value: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_mean"),
             .init(name: "timezone", value: location.timeZoneID),
             .init(name: "forecast_days", value: "16"),
         ]
@@ -168,10 +168,12 @@ final class PersonalDataService {
                 var temperature_2m_max: [Double?]
                 var temperature_2m_min: [Double?]
                 var precipitation_probability_max: [Int?]
+                var relative_humidity_2m_mean: [Double?]?
             }
             struct Current: Decodable {
                 var temperature_2m: Double?
                 var weather_code: Int?
+                var relative_humidity_2m: Double?
             }
             var daily: Daily
             var current: Current?
@@ -186,12 +188,14 @@ final class PersonalDataService {
                 guard parts.count == 3, let code = d.weather_code[i], let hi = d.temperature_2m_max[i],
                       let lo = d.temperature_2m_min[i] else { continue }
                 days[CalendarDay(year: parts[0], month: parts[1], day: parts[2])] =
-                    PrintedWeather(code: code, high: hi, low: lo, rain: d.precipitation_probability_max[i])
+                    PrintedWeather(code: code, high: hi, low: lo, rain: d.precipitation_probability_max[i],
+                                    humidity: d.relative_humidity_2m_mean?[i].map { Int($0.rounded()) })
             }
             if let tz = TimeZone(identifier: location.timeZoneID) {
                 let today = CalendarDay(containing: Date(), in: tz)
                 days[today]?.now = response.current?.temperature_2m
                 days[today]?.nowCode = response.current?.weather_code
+                if let h = response.current?.relative_humidity_2m { days[today]?.humidity = Int(h.rounded()) }
             }
             weatherCache = (location, Date(), days)
             return days

@@ -24,9 +24,18 @@ struct PrintedWeather: Codable, Hashable {
     var low: Double
     /// Chance of rain, percent.
     var rain: Int?
+    /// Relative humidity, percent: right now on today's sheet, the day's average on others.
+    var humidity: Int?
     /// Temperature and conditions right now. Only on today's sheet.
     var now: Double?
     var nowCode: Int?
+
+    /// "33° / 25° / 84%": high, low and humidity, the % saying what the last one is.
+    var summary: String {
+        var parts = ["\(Int(high.rounded()))°", "\(Int(low.rounded()))°"]
+        if let humidity { parts.append("\(humidity)%") }
+        return parts.joined(separator: " / ")
+    }
 
     var description: LocalizedText {
         switch nowCode ?? code {
