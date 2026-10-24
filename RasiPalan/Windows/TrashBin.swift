@@ -48,6 +48,27 @@ enum BinColor: String, Codable, CaseIterable {
     }
 }
 
+/// When the bin is on the desktop.
+enum BinVisibility: String, Codable, CaseIterable {
+    /// Always standing on the desktop, empty or not.
+    case always
+    /// Out while there are balls about or it has something in it.
+    case whenNeeded
+    /// Like `whenNeeded`, but it leaves a few seconds after the last ball is tossed, full or not.
+    case autoHide
+    /// Never shown.
+    case hidden
+
+    var title: String {
+        switch self {
+        case .always: "Always"
+        case .whenNeeded: "Until emptied"
+        case .autoHide: "Hide after tossing"
+        case .hidden: "Never"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class BinModel {
@@ -114,7 +135,7 @@ final class TrashBinController {
     /// "Clear Desktop" from the bin's right-click menu.
     var onClearDesktop: () -> Void = {}
 
-    /// Follows the pad's size, keeping the bin standing where it is.
+    /// Resizes the bin, keeping it standing where it is.
     func setScale(_ newScale: CGFloat) {
         guard abs(newScale - scale) > 0.001 else { return }
         scale = newScale

@@ -128,10 +128,9 @@ final class AppController {
         menuBar = MenuBarController(app: self, pad: pad)
         pad.show()
 
-        let bin = TrashBinController(store: store, scale: model.scale, sprites: BallSprites.make(model: model))
+        let bin = TrashBinController(store: store, scale: store.state.binScale, sprites: BallSprites.make(model: model))
         bin.onEmptied = { [weak self] in self?.updateBinVisibility() }
         bin.onClearDesktop = { [weak self] in self?.clearDesktop() }
-        pad.onScaleChanged = { [weak bin] s in bin?.setScale(s) }
         trashBin = bin
 
         let balls = PaperBallsController(store: store, model: model)
@@ -358,6 +357,24 @@ final class AppController {
 
     func setBinColor(_ color: BinColor) { trashBin?.setColor(color) }
 
+    func setBinScale(_ scale: CGFloat) {
+        store.state.binScale = scale
+        store.save()
+        trashBin?.setScale(scale)
+    }
+
+    func setBinVisibility(_ visibility: BinVisibility) {
+        store.state.binVisibility = visibility
+        store.save()
+        updateBinVisibility()
+    }
+
+    func setBinAutoHideSeconds(_ seconds: Int) {
+        store.state.binAutoHideSeconds = seconds
+        store.save()
+        updateBinVisibility()
+    }
+
     func setPaperChoice(_ choice: PaperChoice) {
         store.state.paperChoice = choice
         store.save()
@@ -526,15 +543,29 @@ final class AppController {
         SoundPlayer.shared.play("rustle", volume: 0.8)
     }
 
-    /// The bin is out while there are paper balls about or it has something in it.
+    /// By default the bin is out while there are paper balls about or it has something in it.
+    /// It can also be hidden outright, or leave a while after the last ball is tossed.
     private func updateBinVisibility() {
         guard let bin = trashBin, let pad, let balls = paperBalls else { return }
-        if !balls.isEmpty || bin.model.count > 0 {
+        binHideTask?.cancel()
+        let visibility = store.state.binVisibility
+        if visibility == .always {
             bin.show(level: pad.level)
-        } else {
+            return
+        }
+        if visibility == .hidden || (balls.isEmpty && bin.model.count == 0) {
             bin.hide()
+            return
+        }
+        bin.show(level: pad.level)
+        guard visibility == .autoHide, balls.isEmpty else { return }
+        binHideTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(self?.store.state.binAutoHideSeconds ?? 10))
+            guard !Task.isCancelled else { return }
+            self?.trashBin?.hide()
         }
     }
+    private var binHideTask: Task<Void, Never>?
 
     func setSoundEnabled(_ on: Bool) {
         store.state.soundEnabled = on

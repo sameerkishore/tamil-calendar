@@ -32,6 +32,9 @@ private struct SettingsView: View {
     @State private var shortcut: FrontShortcut
     @State private var sound: Bool
     @State private var binColor: BinColor
+    @State private var binScale: Double
+    @State private var binVisibility: BinVisibility
+    @State private var binAutoHideSeconds: Int
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
     @State private var myRasi: Int?
@@ -52,6 +55,9 @@ private struct SettingsView: View {
         _chosenCalendars = State(initialValue: app.state.eventCalendarIDs.map(Set.init))
         _sound = State(initialValue: app.state.soundEnabled)
         _binColor = State(initialValue: app.state.binColor)
+        _binScale = State(initialValue: Double(app.state.binScale))
+        _binVisibility = State(initialValue: app.state.binVisibility)
+        _binAutoHideSeconds = State(initialValue: app.state.binAutoHideSeconds)
         _openAtLogin = State(initialValue: app.opensAtLogin)
     }
 
@@ -152,6 +158,18 @@ private struct SettingsView: View {
                 LabeledContent("Torn sheets and paper balls") {
                     Button("Clear Desktop") { app.clearDesktop() }
                 }
+                Picker("Show bin", selection: $binVisibility) {
+                    ForEach(BinVisibility.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                if binVisibility == .autoHide {
+                    Stepper("Hide after \(binAutoHideSeconds) seconds", value: $binAutoHideSeconds, in: 2...120)
+                }
+                if binVisibility != .hidden {
+                    LabeledContent("Bin size") {
+                        Slider(value: $binScale, in: 0.4...1.5)
+                            .frame(width: 180)
+                    }
+                }
                 LabeledContent("Bin color") {
                     HStack(spacing: 8) {
                         ForEach(BinColor.allCases, id: \.self) { color in
@@ -198,6 +216,9 @@ private struct SettingsView: View {
         .onChange(of: myRasi) { _, v in app.setMyRasi(v) }
         .onChange(of: signs) { _, v in app.setSignNames(v) }
         .onAppear(perform: refreshAccess)
+        .onChange(of: binScale) { _, v in app.setBinScale(CGFloat(v)) }
+        .onChange(of: binVisibility) { _, v in app.setBinVisibility(v) }
+        .onChange(of: binAutoHideSeconds) { _, v in app.setBinAutoHideSeconds(v) }
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }
         .onChange(of: openAtLogin) { _, v in
             app.setOpensAtLogin(v)
