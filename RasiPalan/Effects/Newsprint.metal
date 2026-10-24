@@ -262,7 +262,9 @@ static half halftoneScreen(float2 position, SwiftUI::Layer layer, float pitch, f
     float2 g = rot * position / pitch;
     float2 centre = (floor(g) + 0.5);
     half4 s = layer.sample(back * centre * pitch);
-    half3 c = s.a > 0.001h ? s.rgb / s.a : half3(1.0h);
+    // HDR photos sample above 1 (and wide-gamut ones below 0). Left alone that drives the
+    // coverage negative, its square root NaN, and the dots come out as bright patches.
+    half3 c = s.a > 0.001h ? clamp(s.rgb / s.a, 0.0h, 1.0h) : half3(1.0h);
 
     // RGB → CMYK, with only part of the grey taken by black so colours stay rich.
     half k = (1.0h - max(c.r, max(c.g, c.b))) * 0.7h;
@@ -270,7 +272,7 @@ static half halftoneScreen(float2 position, SwiftUI::Layer layer, float pitch, f
     half cover = channel == 0 ? cmy.x : channel == 1 ? cmy.y : channel == 2 ? cmy.z : k;
 
     // Dot area tracks coverage; the darkest dots just touch, so a little paper always shows.
-    float r = sqrt(float(cover)) * 0.54;
+    float r = sqrt(max(float(cover), 0.0)) * 0.54;
     float d = length(g - centre);
     float aa = 0.6 / pitch + 0.04;
     return half(1.0 - smoothstep(r - aa, r + aa, d));
@@ -294,7 +296,7 @@ static half halftoneScreen(float2 position, SwiftUI::Layer layer, float pitch, f
         * mix(half3(1.0h), half3(0.13, 0.12, 0.12), black * 0.85h);
 
     half4 photo = layer.sample(position);
-    half3 c = photo.a > 0.001h ? photo.rgb / photo.a : paper;
+    half3 c = photo.a > 0.001h ? clamp(photo.rgb / photo.a, 0.0h, 1.0h) : paper;
     // Vintage stock: a touch faded and warm, never crushed.
     half luma = dot(c, half3(0.299h, 0.587h, 0.114h));
     c = mix(half3(luma), c, 0.88h);
