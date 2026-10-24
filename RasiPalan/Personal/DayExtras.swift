@@ -12,8 +12,6 @@ struct DayExtras: Codable, Hashable {
 
 /// How event start times are written on a sheet.
 enum ClockFormat: String, Codable, CaseIterable {
-    /// Like the printed calendars: 12-hour, no marker ("9.30").
-    case classic
     /// "9.30 PM"
     case twelveHour
     /// "21.30"
@@ -21,7 +19,6 @@ enum ClockFormat: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
-        case .classic: "Classic (9.30)"
         case .twelveHour: "12-hour (9.30 PM)"
         case .twentyFourHour: "24-hour (21.30)"
         }
@@ -30,7 +27,6 @@ enum ClockFormat: String, Codable, CaseIterable {
     func format(hour: Int, minute: Int) -> String {
         let h12 = (hour + 11) % 12 + 1
         switch self {
-        case .classic: return minute == 0 ? "\(h12)" : String(format: "%d.%02d", h12, minute)
         case .twelveHour:
             let clock = minute == 0 ? "\(h12)" : String(format: "%d.%02d", h12, minute)
             return clock + (hour < 12 ? " AM" : " PM")
@@ -40,7 +36,7 @@ enum ClockFormat: String, Codable, CaseIterable {
 }
 
 struct PrintedEvent: Codable, Hashable {
-    /// Start time written per the user's `ClockFormat` ("9.30"), or nil for all-day events.
+    /// Start time written per the user's `ClockFormat` ("9.30 PM"), or nil for all-day events.
     var time: String?
     var title: String
 }
