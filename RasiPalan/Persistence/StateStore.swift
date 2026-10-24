@@ -59,6 +59,11 @@ struct AppState: Codable {
     var clock: ClockFormat = .twelveHour
     var soundEnabled = true
     var binColor: BinColor = .teal
+    /// The bin's own size, independent of the pad's.
+    var binScale: CGFloat = 0.8
+    var binVisibility: BinVisibility = .whenNeeded
+    /// Seconds after the last loose ball is tossed before an auto-hiding bin goes away.
+    var binAutoHideSeconds = 10
     var physics = TearPhysics()
 
     static func fresh() -> AppState {
@@ -113,6 +118,9 @@ struct AppState: Codable {
         clock = (try? c.decodeIfPresent(ClockFormat.self, forKey: .clock)) ?? .twelveHour
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         binColor = (try? c.decodeIfPresent(BinColor.self, forKey: .binColor)) ?? .teal
+        binScale = try c.decodeIfPresent(CGFloat.self, forKey: .binScale) ?? 0.8
+        binVisibility = (try? c.decodeIfPresent(BinVisibility.self, forKey: .binVisibility)) ?? .whenNeeded
+        binAutoHideSeconds = try c.decodeIfPresent(Int.self, forKey: .binAutoHideSeconds) ?? 10
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }
 }
