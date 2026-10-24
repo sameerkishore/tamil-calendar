@@ -133,12 +133,12 @@ final class PersonalDataService {
         }
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = .current
+        let clock = store.state.clock
         return sorted.map { e in
             var time: String?
             if !e.isAllDay {
                 let c = cal.dateComponents([.hour, .minute], from: max(e.startDate, start))
-                let h = (c.hour! + 11) % 12 + 1
-                time = c.minute! == 0 ? "\(h)" : String(format: "%d.%02d", h, c.minute!)
+                time = clock.format(hour: c.hour!, minute: c.minute!)
             }
             return PrintedEvent(time: time, title: e.title ?? "")
         }

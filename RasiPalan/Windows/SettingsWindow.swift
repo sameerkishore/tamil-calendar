@@ -40,6 +40,7 @@ private struct SettingsView: View {
     @State private var calendarAccess: PersonalDataService.Access = .notAsked
     @State private var calendars: [EKCalendar] = []
     @State private var chosenCalendars: Set<String>?
+    @State private var clock: ClockFormat
 
     init(app: AppController, model: PadModel) {
         self.app = app
@@ -50,6 +51,7 @@ private struct SettingsView: View {
         _myRasi = State(initialValue: app.state.myRasi)
         _signs = State(initialValue: app.state.signNames)
         _chosenCalendars = State(initialValue: app.state.eventCalendarIDs.map(Set.init))
+        _clock = State(initialValue: app.state.clock)
         _sound = State(initialValue: app.state.soundEnabled)
         _binColor = State(initialValue: app.state.binColor)
         _openAtLogin = State(initialValue: app.opensAtLogin)
@@ -121,6 +123,9 @@ private struct SettingsView: View {
                             }
                         }
                     }
+                }
+                Picker("Event times", selection: $clock) {
+                    ForEach(ClockFormat.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 Text("Weather comes from Open-Meteo, a free service. Only your city's rounded location is sent, and only while a Weather block is on your sheet.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -198,6 +203,7 @@ private struct SettingsView: View {
         .onChange(of: myRasi) { _, v in app.setMyRasi(v) }
         .onChange(of: signs) { _, v in app.setSignNames(v) }
         .onAppear(perform: refreshAccess)
+        .onChange(of: clock) { _, v in app.setClock(v) }
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }
         .onChange(of: openAtLogin) { _, v in
             app.setOpensAtLogin(v)
