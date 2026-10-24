@@ -55,6 +55,8 @@ struct AppState: Codable {
     var paperChoice: PaperChoice = .template
     /// Calendars whose events are printed; nil means all of them.
     var eventCalendarIDs: [String]?
+    /// How event times are written.
+    var clock: ClockFormat = .twelveHour
     var soundEnabled = true
     var binColor: BinColor = .teal
     var physics = TearPhysics()
@@ -108,6 +110,7 @@ struct AppState: Codable {
         signNames = (try? c.decodeIfPresent(SignNames.self, forKey: .signNames)) ?? .tamil
         paperChoice = (try? c.decodeIfPresent(PaperChoice.self, forKey: .paperChoice)) ?? .template
         eventCalendarIDs = try c.decodeIfPresent([String].self, forKey: .eventCalendarIDs)
+        clock = (try? c.decodeIfPresent(ClockFormat.self, forKey: .clock)) ?? .twelveHour
         soundEnabled = try c.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         binColor = (try? c.decodeIfPresent(BinColor.self, forKey: .binColor)) ?? .teal
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
