@@ -123,7 +123,7 @@ struct EventsBlock: CardBlock {
                                 theme.label(LocalizedText(ta: "முழு நாள்", en: "All day"), size.text - 1.5, bold: true)
                             }
                         }
-                        .frame(width: theme.u(40), alignment: .trailing)
+                        .frame(width: theme.u(52), alignment: .trailing)
                         Text(event.title)
                             .font(PersonalText.font(for: event.title, theme: theme, size: size.text))
                             .lineLimit(1)

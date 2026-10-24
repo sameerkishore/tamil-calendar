@@ -387,6 +387,12 @@ final class AppController {
         personal?.refresh()
     }
 
+    func setClock(_ clock: ClockFormat) {
+        store.state.clock = clock
+        store.save()
+        personal?.refresh()
+    }
+
     func setBoard(_ board: BoardStyle) {
         if board == .custom && model.boardImage == nil {
             chooseBoardImage()
