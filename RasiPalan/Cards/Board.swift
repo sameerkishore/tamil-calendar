@@ -169,6 +169,9 @@ struct PhotoPortrait: View {
                         .layerEffect(ShaderLibrary.halftone(.float(theme.scale)),
                                      maxSampleOffset: CGSize(width: theme.u(3), height: theme.u(3)),
                                      isEnabled: printed)
+                        // A new picture fades in over the old one (only ever seen with the shortcut).
+                        .id(ObjectIdentifier(image))
+                        .transition(.opacity)
                 } else {
                     Text("Choose a picture in\nTemplates & Board")
                         .font(theme.latin(12))
