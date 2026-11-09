@@ -6,10 +6,17 @@ import SwiftUI
 /// right-click menu.
 final class DraggableHostingView<Content: View>: NSHostingView<Content> {
     var onDragStarted: () -> Void = {}
+    /// Each movement of a drag, with the mouse in screen coordinates (AppKit, y up).
+    var onDragMoved: (CGPoint) -> Void = { _ in }
+    /// False while the owner is using the drag for something other than moving the window.
+    var movesWindow: () -> Bool = { true }
     /// Velocity at release in screen points per second (AppKit, y up).
     var onDragEnded: (CGVector) -> Void = { _ in }
     var onClick: () -> Void = {}
     var contextMenu: () -> NSMenu? = { nil }
+
+    /// Where the current drag's mouse-down was, in screen coordinates.
+    var dragStart: CGPoint { start }
 
     private var start: CGPoint = .zero
     private var startOrigin: CGPoint = .zero
@@ -33,7 +40,10 @@ final class DraggableHostingView<Content: View>: NSHostingView<Content> {
             onDragStarted()
         }
         dragged = true
-        window?.setFrameOrigin(CGPoint(x: startOrigin.x + p.x - start.x, y: startOrigin.y + p.y - start.y))
+        if movesWindow() {
+            window?.setFrameOrigin(CGPoint(x: startOrigin.x + p.x - start.x, y: startOrigin.y + p.y - start.y))
+        }
+        onDragMoved(p)
         samples.append((p, event.timestamp))
         samples.removeAll { event.timestamp - $0.time > 0.1 }
     }

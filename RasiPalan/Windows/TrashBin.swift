@@ -77,6 +77,8 @@ final class BinModel {
     var isEmptying = false
     /// Bumps each time a ball lands in, to give the bin a little jolt.
     var landings = 0
+    /// How hard the last one came in, 0…1: the harder, the more the bin shakes.
+    var landingPower: CGFloat = 0
     static let capacity = 10
     var isFull: Bool { count >= Self.capacity }
 }
@@ -200,8 +202,9 @@ final class TrashBinController {
     }
 
     /// A ball dropped in.
-    func accept() {
+    func accept(power: CGFloat) {
         model.count += 1
+        model.landingPower = power
         model.landings += 1
         store.state.binCount = model.count
         store.save()
@@ -257,6 +260,7 @@ struct TrashBinView: View {
         let rim = Self.rimHeight * scale
         let ball = w * 0.4
         let (plastic, plasticDark, plasticLight) = model.color.plastic
+        let power = model.landingPower
 
         ZStack(alignment: .bottom) {
             // Shadow on the floor.
@@ -311,15 +315,43 @@ struct TrashBinView: View {
             // Full: it can't take any more, and fidgets to say so. Only animates while full,
             // so an idle bin costs no CPU.
             .modifier(FullWobble(active: model.isFull && !model.isEmptying))
-            // A little jolt when a ball lands.
-            .keyframeAnimator(initialValue: 0.0, trigger: model.landings) { content, dy in
-                content.offset(y: dy * scale)
+            // A little jolt when a ball lands, or a real shake if it came in hard.
+            .keyframeAnimator(initialValue: BinJolt(), trigger: model.landings) { content, jolt in
+                content
+                    .rotationEffect(.degrees(jolt.tilt), anchor: .bottom)
+                    .offset(x: jolt.sway * scale, y: jolt.drop * scale)
             } keyframes: { _ in
-                SpringKeyframe(3, duration: 0.06)
-                SpringKeyframe(0, duration: 0.25, spring: .bouncy)
+                KeyframeTrack(\.drop) {
+                    SpringKeyframe(3 + 8 * power, duration: 0.06)
+                    SpringKeyframe(0, duration: 0.25, spring: .bouncy)
+                }
+                KeyframeTrack(\.tilt) {
+                    for swing in BinJolt.swings(power: power, peak: 8) {
+                        CubicKeyframe(swing, duration: 0.07)
+                    }
+                }
+                KeyframeTrack(\.sway) {
+                    for swing in BinJolt.swings(power: power, peak: 9) {
+                        CubicKeyframe(swing, duration: 0.07)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+}
+
+private struct BinJolt {
+    var drop = 0.0
+    var tilt = 0.0
+    var sway = 0.0
+
+    /// Back and forth, dying away, and ringing on for longer the harder the hit. Ends at rest.
+    static func swings(power: CGFloat, peak: Double) -> [Double] {
+        let decay = 0.6 + 0.2 * Double(power)
+        return (0..<8).map { i in
+            Double(power) * peak * pow(decay, Double(i)) * (i.isMultiple(of: 2) ? 1 : -1)
+        } + [0]
     }
 }
 

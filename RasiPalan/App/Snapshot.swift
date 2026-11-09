@@ -81,6 +81,38 @@ enum Snapshot {
             })
         }
 
+        // -snapshotAim 1: a ball waiting with its tab, and the same ball pulled back softly and hard.
+        if defaults.double(forKey: "snapshotAim") > 0 {
+            let display = CGRect(x: 0, y: 0, width: 620, height: 420)
+            let side = PaperBallWindowController.side(scale: 1)
+            let ball = CGPoint(x: 330, y: 230)
+            let offset = BallPullTab.offset(forBall: 1)
+            let local = { (p: CGPoint) in CGPoint(x: p.x, y: display.maxY - p.y) }
+            let sphere = CrumpledSheet(context: context, layout: model.layout, t: 1)
+            let tab = CGPoint(x: ball.x + offset.dx, y: ball.y + offset.dy)
+            let pulls: [CGVector?] = [nil, CGVector(dx: -110, dy: -120), CGVector(dx: -210, dy: -240)]
+            content = AnyView(HStack(spacing: 2) {
+                ForEach(pulls.indices, id: \.self) { i in
+                    ZStack {
+                        if let reach = pulls[i] {
+                            let hand = CGPoint(x: tab.x + reach.dx, y: tab.y + reach.dy)
+                            let pull = BallPull(ball: ball, hand: hand, slack: hypot(offset.dx, offset.dy), display: display)
+                            let flight = BallFlight(from: ball, velocity: BallFlight.launch(for: pull, scale: 1), scale: 1, screen: display)
+                            BallAimDrawing(picture: BallAimPicture(ball: local(ball), hand: local(CGPoint(x: ball.x + pull.reach.dx, y: ball.y + pull.reach.dy)),
+                                                                   path: flight.opening(length: 45 + BallAimDrawing.hintLength).map(local),
+                                                                   power: pull.power), time: 0)
+                        } else {
+                            TuckedPullTab(ballScale: 1).position(local(ball))
+                        }
+                        sphere.frame(width: side, height: side).position(local(ball))
+                    }
+                    .frame(width: display.width, height: display.height)
+                    .background(i == 1 ? Color(red: 0.72, green: 0.78, blue: 0.86) : Color(red: 0.18, green: 0.24, blue: 0.32))
+                    .clipped()
+                }
+            }.environment(\.cardTheme, theme))
+        }
+
         // -snapshotBinColors 1: a part-full bin in each colour.
         if defaults.double(forKey: "snapshotBinColors") > 0 {
             let sprites = BallSprites.make(model: model)
