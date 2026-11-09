@@ -136,7 +136,7 @@ final class AppController {
         let balls = PaperBallsController(store: store, model: model)
         balls.level = { pad.level }
         balls.bin = { [weak bin] in bin?.target }
-        balls.onBinned = { [weak bin] in bin?.accept() }
+        balls.onBinned = { [weak bin] power in bin?.accept(power: power) }
         balls.onCountChanged = { [weak self] in self?.updateBinVisibility() }
         balls.restore()
         paperBalls = balls
@@ -367,6 +367,12 @@ final class AppController {
         store.state.binVisibility = visibility
         store.save()
         updateBinVisibility()
+    }
+
+    func setPullBackToThrow(_ on: Bool) {
+        store.state.pullBackToThrow = on
+        store.save()
+        paperBalls?.refreshTabs()
     }
 
     func setBinAutoHideSeconds(_ seconds: Int) {

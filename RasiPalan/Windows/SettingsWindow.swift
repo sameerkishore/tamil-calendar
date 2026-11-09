@@ -34,6 +34,7 @@ private struct SettingsView: View {
     @State private var binColor: BinColor
     @State private var binScale: Double
     @State private var binVisibility: BinVisibility
+    @State private var pullBackToThrow: Bool
     @State private var binAutoHideSeconds: Int
     @State private var openAtLogin: Bool
     @State private var confirmToday = false
@@ -59,6 +60,7 @@ private struct SettingsView: View {
         _binColor = State(initialValue: app.state.binColor)
         _binScale = State(initialValue: Double(app.state.binScale))
         _binVisibility = State(initialValue: app.state.binVisibility)
+        _pullBackToThrow = State(initialValue: app.state.pullBackToThrow)
         _binAutoHideSeconds = State(initialValue: app.state.binAutoHideSeconds)
         _openAtLogin = State(initialValue: app.opensAtLogin)
     }
@@ -163,6 +165,10 @@ private struct SettingsView: View {
                 LabeledContent("Torn sheets and paper balls") {
                     Button("Clear Desktop") { app.clearDesktop() }
                 }
+                Toggle(isOn: $pullBackToThrow) {
+                    Text("Pull back to throw paper balls")
+                    Text("Balls grow a tab. Pull it to aim, further for more power, and let go. Drag the ball itself to move it.")
+                }
                 Picker("Show bin", selection: $binVisibility) {
                     ForEach(BinVisibility.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
@@ -223,6 +229,7 @@ private struct SettingsView: View {
         .onAppear(perform: refreshAccess)
         .onChange(of: binScale) { _, v in app.setBinScale(CGFloat(v)) }
         .onChange(of: binVisibility) { _, v in app.setBinVisibility(v) }
+        .onChange(of: pullBackToThrow) { _, v in app.setPullBackToThrow(v) }
         .onChange(of: binAutoHideSeconds) { _, v in app.setBinAutoHideSeconds(v) }
         .onChange(of: clock) { _, v in app.setClock(v) }
         .onChange(of: sound) { _, v in app.setSoundEnabled(v) }

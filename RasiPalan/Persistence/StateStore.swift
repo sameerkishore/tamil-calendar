@@ -64,6 +64,8 @@ struct AppState: Codable {
     var binVisibility: BinVisibility = .whenNeeded
     /// Seconds after the last loose ball is tossed before an auto-hiding bin goes away.
     var binAutoHideSeconds = 10
+    /// Dragging a paper ball pulls it back to aim, instead of carrying and flicking it.
+    var pullBackToThrow = false
     var physics = TearPhysics()
 
     static func fresh() -> AppState {
@@ -121,6 +123,7 @@ struct AppState: Codable {
         binScale = try c.decodeIfPresent(CGFloat.self, forKey: .binScale) ?? 0.8
         binVisibility = (try? c.decodeIfPresent(BinVisibility.self, forKey: .binVisibility)) ?? .whenNeeded
         binAutoHideSeconds = try c.decodeIfPresent(Int.self, forKey: .binAutoHideSeconds) ?? 10
+        pullBackToThrow = try c.decodeIfPresent(Bool.self, forKey: .pullBackToThrow) ?? false
         physics = (try? c.decodeIfPresent(TearPhysics.self, forKey: .physics)) ?? TearPhysics()
     }
 }
