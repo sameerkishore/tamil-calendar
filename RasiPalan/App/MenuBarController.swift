@@ -18,6 +18,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     private let frontItem = NSMenuItem()
     private let putBackItem = NSMenuItem()
     private let todayItem = NSMenuItem()
+    private let nextPictureItem = NSMenuItem()
 
     init(app: AppController, pad: PadWindowController) {
         self.app = app
@@ -38,6 +39,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(item(putBackItem, "Put Sheet Back", #selector(putSheetBack), key: "z"))
         menu.addItem(item(todayItem, "Back to Today", #selector(backToToday), key: "t"))
         menu.addItem(item(frontItem, "Calendar in Front", #selector(toggleFront)))
+        menu.addItem(item(nextPictureItem, "Next Board Picture", #selector(nextPicture)))
         menu.addItem(item(NSMenuItem(), "Templates & Board…", #selector(showGallery)))
         menu.addItem(item(NSMenuItem(), "Clear Desktop", #selector(clearDesktop)))
         menu.addItem(.separator())
@@ -156,11 +158,19 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         } else {
             frontItem.keyEquivalent = ""
         }
+        nextPictureItem.isHidden = app.state.board != .custom || !app.hasSeveralBoardPictures
+        if let mods = app.state.pictureShortcut.menuModifiers {
+            nextPictureItem.keyEquivalent = "j"
+            nextPictureItem.keyEquivalentModifierMask = mods
+        } else {
+            nextPictureItem.keyEquivalent = ""
+        }
     }
 
     @objc private func putSheetBack() { app.putSheetBack() }
     @objc private func toggleFront() { app.toggleInFront() }
     @objc private func showGallery() { app.showGallery() }
+    @objc private func nextPicture() { app.nextBoardPicture() }
     @objc private func clearDesktop() { app.clearDesktop() }
     @objc private func showSettings() { app.showSettings() }
 

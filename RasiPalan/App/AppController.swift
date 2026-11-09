@@ -22,8 +22,15 @@ final class PadModel {
     var perforations = TearPhysics.defaults.holes
     /// The printed board the pad hangs on, if any.
     var board: BoardStyle = .none
+    /// The picture on the board now, and how it's framed.
     var boardImage: NSImage?
     var boardCrop = PhotoCrop()
+    /// All the board pictures, for Templates & Board; `boardPhotoID` is the one showing.
+    var boardPhotos: [BoardPhoto] = []
+    var boardPhotoID: UUID?
+    var pictureChange: PictureChange = .never
+    var pictureShuffle = false
+    var pictureShortcut: PictureShortcut = .off
     var boardPhotoPrinted = true
     var boardPalette = BoardPalette.classic
     /// The pad (and torn sheets, balls, bin) float above all windows instead of the desktop.
@@ -80,6 +87,8 @@ final class AppController {
     private var photoCrop: PhotoCropWindowController?
     private var settings: SettingsWindowController?
     private let frontHotKey = HotKey()
+    private let pictureHotKey = HotKey()
+    private var slideshow: BoardSlideshow!
     private var layoutEditor: LayoutEditorWindowController?
     private(set) var personal: PersonalDataService?
     private var appearanceObservation: NSKeyValueObservation?
@@ -104,8 +113,8 @@ final class AppController {
         model.signNames = store.state.signNames
         model.paperChoice = store.state.paperChoice
         model.board = store.state.board
-        model.boardImage = store.state.boardImagePath.flatMap(NSImage.init(contentsOfFile:))
-        model.boardCrop = store.state.boardCrop
+        slideshow = BoardSlideshow(store: store, model: model)
+        model.pictureShortcut = store.state.pictureShortcut
         model.boardPhotoPrinted = store.state.boardPhotoPrinted
         model.boardPalette = store.state.boardPalette
         model.keepOnTop = store.state.keepOnTop
@@ -120,12 +129,14 @@ final class AppController {
         SoundPlayer.shared.isEnabled = state.soundEnabled
         updateWear()
         registerFrontShortcut()
+        registerPictureShortcut()
         personal = PersonalDataService(store: store, model: model)
         personal?.refresh()
         let pad = PadWindowController(store: store, model: model)
         pad.undoManager = undoManager
         self.pad = pad
         menuBar = MenuBarController(app: self, pad: pad)
+        slideshow.start()
         pad.show()
 
         let bin = TrashBinController(store: store, scale: store.state.binScale, sprites: BallSprites.make(model: model))
@@ -310,10 +321,17 @@ final class AppController {
                 model: model,
                 chooseLayout: { [weak self] in self?.setLayout($0) },
                 chooseBoard: { [weak self] in self?.setBoard($0) },
-                choosePicture: { [weak self] in self?.chooseBoardImage() },
+                pictures: BoardPictureActions(
+                    add: { [weak self] in self?.addBoardPictures() },
+                    adjust: { [weak self] in self?.adjustBoardImage() },
+                    show: { [weak self] in self?.slideshow.show($0, animated: true) },
+                    remove: { [weak self] in self?.slideshow.remove($0) },
+                    move: { [weak self] in self?.slideshow.move($0, to: $1) },
+                    setChange: { [weak self] in self?.slideshow.setChange($0) },
+                    setShuffle: { [weak self] in self?.slideshow.setShuffle($0) },
+                    setShortcut: { [weak self] in self?.setPictureShortcut($0) },
+                    setPrinted: { [weak self] in self?.setBoardPhotoPrinted($0) }),
                 customize: { [weak self] in self?.showLayoutEditor() },
-                adjustPicture: { [weak self] in self?.adjustBoardImage() },
-                setPhotoPrinted: { [weak self] in self?.setBoardPhotoPrinted($0) },
                 setPalette: { [weak self] in self?.setBoardPalette($0) },
                 customLayout: { [weak self] in self?.state.customLayout })
         }
@@ -394,8 +412,8 @@ final class AppController {
     }
 
     func setBoard(_ board: BoardStyle) {
-        if board == .custom && model.boardImage == nil {
-            chooseBoardImage()
+        if board == .custom && state.boardPhotos.isEmpty {
+            addBoardPictures()
             return
         }
         store.state.board = board
@@ -404,30 +422,20 @@ final class AppController {
         pad?.boardChanged()
     }
 
-    /// Lets the user pick a picture for the board; copies it into Application Support.
-    func chooseBoardImage() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.image]
-        panel.message = "Choose a picture for the calendar board, e.g. your family deity or a favourite photo."
-        NSApp.activate()
-        guard panel.runModal() == .OK, let url = panel.url, let image = NSImage(contentsOf: url) else { return }
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RasiPalan", isDirectory: true)
-        let dest = dir.appendingPathComponent("board-image." + (url.pathExtension.isEmpty ? "png" : url.pathExtension))
-        try? FileManager.default.removeItem(at: dest)
-        do {
-            try FileManager.default.copyItem(at: url, to: dest)
-        } catch {
-            NSLog("RasiPalan: couldn't copy board image: \(error)")
-            return
-        }
-        store.state.boardImagePath = dest.path
-        store.state.boardCrop = PhotoCrop()
-        model.boardImage = image
-        model.boardCrop = PhotoCrop()
-        setBoard(.custom)
-        adjustBoardImage()
+    /// Adds pictures to the board's slideshow and puts the board up if it wasn't already.
+    func addBoardPictures() {
+        let wasEmpty = state.boardPhotos.isEmpty
+        let added = slideshow.addPictures()
+        guard added > 0 else { return }
+        if state.board != .custom { setBoard(.custom) }
+        // A first single picture almost always wants framing.
+        if wasEmpty && added == 1 { adjustBoardImage() }
     }
+
+    /// The shortcut or menu: the next picture, crossfading in view.
+    func nextBoardPicture() { slideshow.next(animated: true) }
+
+    var hasSeveralBoardPictures: Bool { state.boardPhotos.count > 1 }
 
     /// Turns the vintage print effect on the board picture on or off.
     func setBoardPhotoPrinted(_ on: Bool) {
@@ -443,14 +451,11 @@ final class AppController {
         model.boardPalette = palette
     }
 
-    /// Opens the crop window for the board picture; changes apply live.
+    /// Opens the crop window for the picture on the board; changes apply live.
     func adjustBoardImage() {
-        guard let image = model.boardImage else { return chooseBoardImage() }
-        photoCrop = PhotoCropWindowController(image: image, crop: store.state.boardCrop) { [weak self] crop in
-            guard let self else { return }
-            model.boardCrop = crop
-            store.state.boardCrop = crop
-            store.save()
+        guard let image = model.boardImage, let photo = slideshow.current else { return addBoardPictures() }
+        photoCrop = PhotoCropWindowController(image: image, crop: photo.crop) { [weak self] crop in
+            self?.slideshow.setCrop(crop, for: photo.id)
         }
         photoCrop?.show()
     }
@@ -508,6 +513,17 @@ final class AppController {
 
     private func registerFrontShortcut() {
         frontHotKey.register(state.frontShortcut) { [weak self] in self?.toggleInFront() }
+    }
+
+    func setPictureShortcut(_ shortcut: PictureShortcut) {
+        store.state.pictureShortcut = shortcut
+        store.save()
+        model.pictureShortcut = shortcut
+        registerPictureShortcut()
+    }
+
+    private func registerPictureShortcut() {
+        pictureHotKey.register(state.pictureShortcut) { [weak self] in self?.nextBoardPicture() }
     }
 
     func resetPadPosition() { pad?.resetPosition() }

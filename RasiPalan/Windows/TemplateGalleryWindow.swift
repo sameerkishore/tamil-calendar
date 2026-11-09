@@ -9,18 +9,16 @@ final class TemplateGalleryWindowController {
     private let window: NSWindow
 
     init(model: PadModel, chooseLayout: @escaping (String) -> Void, chooseBoard: @escaping (BoardStyle) -> Void,
-         choosePicture: @escaping () -> Void, customize: @escaping () -> Void, adjustPicture: @escaping () -> Void,
-         setPhotoPrinted: @escaping (Bool) -> Void, setPalette: @escaping (BoardPalette) -> Void,
-         customLayout: @escaping () -> CardLayout?) {
+         pictures: BoardPictureActions, customize: @escaping () -> Void,
+         setPalette: @escaping (BoardPalette) -> Void, customLayout: @escaping () -> CardLayout?) {
         window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 900, height: 680),
                           styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.title = "Templates & Board"
         window.isReleasedWhenClosed = false
         window.contentMinSize = CGSize(width: 560, height: 420)
         window.contentView = NSHostingView(rootView: TemplateGalleryView(
-            model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, choosePicture: choosePicture,
-            customize: customize, adjustPicture: adjustPicture, setPhotoPrinted: setPhotoPrinted, setPalette: setPalette,
-            customLayout: customLayout))
+            model: model, chooseLayout: chooseLayout, chooseBoard: chooseBoard, pictures: pictures,
+            customize: customize, setPalette: setPalette, customLayout: customLayout))
     }
 
     func show() {
@@ -30,14 +28,25 @@ final class TemplateGalleryWindowController {
     }
 }
 
+/// What the board pictures section can ask the app to do.
+struct BoardPictureActions {
+    var add: () -> Void = {}
+    var adjust: () -> Void = {}
+    var show: (UUID) -> Void = { _ in }
+    var remove: (UUID) -> Void = { _ in }
+    var move: (UUID, Int) -> Void = { _, _ in }
+    var setChange: (PictureChange) -> Void = { _ in }
+    var setShuffle: (Bool) -> Void = { _ in }
+    var setShortcut: (PictureShortcut) -> Void = { _ in }
+    var setPrinted: (Bool) -> Void = { _ in }
+}
+
 struct TemplateGalleryView: View {
     let model: PadModel
     let chooseLayout: (String) -> Void
     let chooseBoard: (BoardStyle) -> Void
-    let choosePicture: () -> Void
+    let pictures: BoardPictureActions
     let customize: () -> Void
-    let adjustPicture: () -> Void
-    let setPhotoPrinted: (Bool) -> Void
     let setPalette: (BoardPalette) -> Void
     let customLayout: () -> CardLayout?
     /// Off only for debug snapshots, which can't render a scroll view.
@@ -102,17 +111,14 @@ struct TemplateGalleryView: View {
                     .buttonStyle(.plain)
                 }
             }
-            HStack {
-                if model.boardImage != nil {
-                    Toggle("Vintage print effect", isOn: Binding(get: { model.boardPhotoPrinted },
-                                                                 set: setPhotoPrinted))
-                        .help("A faint halftone, grain and warm fade on your picture")
+            if model.boardPhotos.isEmpty {
+                HStack {
+                    Spacer()
+                    Button("Choose Pictures…", action: pictures.add)
                 }
-                Spacer()
-                if model.boardImage != nil {
-                    Button("Adjust Picture…", action: adjustPicture)
-                }
-                Button(model.boardImage == nil ? "Choose Picture…" : "Change Picture…", action: choosePicture)
+            } else if model.board == .custom {
+                Divider()
+                picturesSection
             }
             if model.board == .plain || model.board == .custom {
                 Divider()
@@ -121,6 +127,67 @@ struct TemplateGalleryView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var picturesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Your pictures").font(.title3.bold())
+                Spacer()
+                Button("Adjust Picture…", action: pictures.adjust)
+                    .disabled(model.boardImage == nil)
+                Button("Add Pictures…", action: pictures.add)
+            }
+            Text(model.boardPhotos.count > 1
+                 ? "Click one to put it up now. Drag to reorder; right-click to remove."
+                 : "Add more to make a slideshow. Each keeps its own framing.")
+                .font(.callout).foregroundStyle(.secondary)
+            let strip = HStack(spacing: 10) {
+                ForEach(Array(model.boardPhotos.enumerated()), id: \.element.id) { index, photo in
+                    BoardPhotoThumb(photo: photo)
+                        .overlay(selection(model.boardPhotoID == photo.id))
+                        .onTapGesture { pictures.show(photo.id) }
+                        .contextMenu {
+                            Button("Put Up Now") { pictures.show(photo.id) }
+                            Button("Remove", role: .destructive) { pictures.remove(photo.id) }
+                        }
+                        .draggable(photo.id.uuidString)
+                        .dropDestination(for: String.self) { items, _ in
+                            guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
+                            pictures.move(id, index)
+                            return true
+                        }
+                }
+            }
+            .padding(6)
+            if scrolls { ScrollView(.horizontal) { strip } } else { strip }
+            Toggle("Vintage print effect", isOn: Binding(get: { model.boardPhotoPrinted }, set: { pictures.setPrinted($0) }))
+                .help("A faint halftone, grain and warm fade on your pictures")
+            if model.boardPhotos.count > 1 {
+                HStack(spacing: 16) {
+                    Picker("Change picture", selection: Binding(get: { model.pictureChange }, set: { pictures.setChange($0) })) {
+                        ForEach(PictureChange.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .frame(maxWidth: 300)
+                    Toggle("Shuffle", isOn: Binding(get: { model.pictureShuffle }, set: { pictures.setShuffle($0) }))
+                    Spacer()
+                }
+                if model.pictureChange == .eachWake {
+                    Text("Changes while the display sleeps or the screen is locked, so a new picture is waiting when you're back.")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Picker("Shortcut for the next picture", selection: Binding(get: { model.pictureShortcut },
+                                                                          set: { pictures.setShortcut($0) })) {
+                    ForEach(PictureShortcut.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .fixedSize()
+                if model.pictureShortcut == .controlJ {
+                    Text("Works from any app. In Terminal and some editors ⌃J starts a new line; pick another if it gets in the way.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private var paletteSection: some View {
@@ -216,6 +283,25 @@ private struct BoardThumbnail: View {
         }
         .frame(width: theme.u(BoardStyle.temple.size.width), height: theme.u(content.height + 10), alignment: .top)
         .environment(\.cardTheme, theme)
+    }
+}
+
+/// One of the user's pictures in the list, decoded small in the background.
+private struct BoardPhotoThumb: View {
+    let photo: BoardPhoto
+    @State private var image: NSImage?
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(.quaternary)
+            if let image {
+                Image(nsImage: image).resizable().scaledToFill()
+            }
+        }
+        .frame(width: 84, height: 76)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .task(id: photo.file) { image = await BoardSlideshow.thumbnail(photo.url) }
     }
 }
 

@@ -37,9 +37,20 @@ struct AppState: Codable {
     /// Which template the sheets are printed with (CardLayout id).
     var layoutID = "classic"
     var board: BoardStyle = .none
-    /// The user's own board picture, copied into Application Support.
+    /// Before slideshows: the one board picture and its crop. Migrated into `boardPhotos`.
     var boardImagePath: String?
     var boardCrop = PhotoCrop()
+    /// The user's own board pictures, copied into Application Support, in slideshow order.
+    var boardPhotos: [BoardPhoto] = []
+    /// Which of `boardPhotos` is on the board.
+    var boardPhotoIndex = 0
+    /// When the board picture moves on to the next one by itself.
+    var pictureChange: PictureChange = .never
+    var pictureShuffle = false
+    /// When the picture last changed, for the timed `pictureChange` options.
+    var pictureChangedAt: Date?
+    /// System-wide shortcut for the next board picture.
+    var pictureShortcut: PictureShortcut = .off
     /// Faint halftone, grain and warm fade on the board picture.
     var boardPhotoPrinted = true
     /// Colours and tiled print of the Plain and Your Own Picture boards.
@@ -107,6 +118,12 @@ struct AppState: Codable {
         board = (try? c.decodeIfPresent(BoardStyle.self, forKey: .board)) ?? BoardStyle.none
         boardImagePath = try c.decodeIfPresent(String.self, forKey: .boardImagePath)
         boardCrop = (try? c.decodeIfPresent(PhotoCrop.self, forKey: .boardCrop)) ?? PhotoCrop()
+        boardPhotos = (try? c.decodeIfPresent([BoardPhoto].self, forKey: .boardPhotos)) ?? []
+        boardPhotoIndex = try c.decodeIfPresent(Int.self, forKey: .boardPhotoIndex) ?? 0
+        pictureChange = (try? c.decodeIfPresent(PictureChange.self, forKey: .pictureChange)) ?? .never
+        pictureShuffle = try c.decodeIfPresent(Bool.self, forKey: .pictureShuffle) ?? false
+        pictureChangedAt = try c.decodeIfPresent(Date.self, forKey: .pictureChangedAt)
+        pictureShortcut = (try? c.decodeIfPresent(PictureShortcut.self, forKey: .pictureShortcut)) ?? .off
         boardPhotoPrinted = (try? c.decodeIfPresent(Bool.self, forKey: .boardPhotoPrinted)) ?? true
         boardPalette = (try? c.decodeIfPresent(BoardPalette.self, forKey: .boardPalette)) ?? .classic
         frontShortcut = (try? c.decodeIfPresent(FrontShortcut.self, forKey: .frontShortcut)) ?? .controlH

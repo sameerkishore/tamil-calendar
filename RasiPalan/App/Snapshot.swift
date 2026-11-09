@@ -173,10 +173,14 @@ enum Snapshot {
 
         // -snapshotGallery 1: the Templates & Board window at its default width and its narrowest.
         if defaults.double(forKey: "snapshotGallery") > 0 {
+            model.boardPhotos = state.boardPhotos
+            model.boardPhotoID = state.boardPhotos.first?.id
+            model.pictureChange = state.pictureChange
+            model.pictureShortcut = state.pictureShortcut
             content = AnyView(HStack(alignment: .top, spacing: 20) {
                 ForEach([900, 560] as [CGFloat], id: \.self) { width in
                     TemplateGalleryView(model: model, chooseLayout: { _ in }, chooseBoard: { _ in },
-                                        choosePicture: {}, customize: {}, adjustPicture: {}, setPhotoPrinted: { _ in }, setPalette: { _ in },
+                                        pictures: BoardPictureActions(), customize: {}, setPalette: { _ in },
                                         customLayout: { state.customLayout }, scrolls: false)
                         .frame(width: width)
                         .background(Color.white)
