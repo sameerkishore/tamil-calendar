@@ -148,6 +148,17 @@ private final class AudioGraph: @unchecked Sendable {
 
     func stopEngine() { engine.stop() }
 
+    /// Starts `player`. The engine can stop itself (output changed, device went away) between our
+    /// `isRunning` check and this call, and then `play()` raises an Objective-C exception that
+    /// would abort the app. Drop the sound instead and let the next one start the engine afresh.
+    private func start(_ player: AVAudioPlayerNode) {
+        if let exception = RPCatchObjCException({ player.play() }) {
+            NSLog("RasiPalan: audio player failed to start: \(exception.reason ?? exception.name.rawValue)")
+            player.stop()
+            engine.stop()
+        }
+    }
+
     func play(_ name: String, volume: Float, rate: Float) {
         guard let buffer = buffers[name]?.randomElement(), startEngineIfNeeded() else { return }
         let voice = voices[nextVoice]
@@ -156,7 +167,7 @@ private final class AudioGraph: @unchecked Sendable {
         voice.varispeed.rate = rate
         voice.player.volume = volume
         voice.player.scheduleBuffer(buffer)
-        voice.player.play()
+        start(voice.player)
     }
 
     func startTearLoop() {
@@ -164,6 +175,6 @@ private final class AudioGraph: @unchecked Sendable {
         tearPlayer.volume = 0
         tearPlayer.stop()
         tearPlayer.scheduleBuffer(buffer, at: nil, options: .loops)
-        tearPlayer.play()
+        start(tearPlayer)
     }
 }
